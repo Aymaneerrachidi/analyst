@@ -14,6 +14,8 @@ import { Toaster } from "@/lib/client/toast";
 import { ensureFresh, getFreshness } from "@/lib/services/sync";
 import type { Freshness } from "@/lib/types";
 import { LiveIndicator } from "@/components/shell/live-indicator";
+import { TradeStreamProvider } from "@/components/live/stream-provider";
+import { env } from "@/lib/env";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"], display: "swap" });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], display: "swap" });
@@ -47,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-primary">
         <QueryProvider>
+          <TradeStreamProvider enabled={env().DATA_PROVIDER === "kolhood"}>
           <TooltipProvider>
             <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-neon focus:px-5 focus:py-3 focus:text-background">Skip to content</a>
             <TopNav />
@@ -66,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <SearchCommandDialog />
             <Toaster />
           </TooltipProvider>
+          </TradeStreamProvider>
         </QueryProvider>
       </body>
     </html>

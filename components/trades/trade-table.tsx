@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTradeStream } from "@/components/live/stream-provider";
+import { matchesTrade, mergeLiveTrades } from "@/lib/client/live-trades";
 import { apiGet } from "@/lib/client/fetcher";
 import { formatPrice, formatUsd, shortAddress } from "@/lib/format";
 import type { AnalystTrade, Freshness } from "@/lib/types";
@@ -214,6 +216,7 @@ function buildQuery(params: Record<string, string | undefined>, extra: Record<st
 
 export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs = 5_000, explorerBase, hideTrader, hideToken, compact, onFreshness, emptyTitle, emptyDescription, paused = false }: FeedProps) {
   const qc = useQueryClient();
+  const stream = useTradeStream();
   const paramsKey = JSON.stringify(params);
   const [initialKey] = useState(paramsKey);
   const listKey = useMemo(() => ["trades", "list", paramsKey, limit], [paramsKey, limit]);
@@ -233,6 +236,14 @@ export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs 
   const trades = list.data ?? [];
   const maxSeq = trades.reduce((m, t) => Math.max(m, t.seq), 0);
 
+  useEffect(() => {
+    if (!stream.enabled || paused || !stream.trades.length) return;
+    const filters: Record<string, string | undefined> = JSON.parse(paramsKey);
+    const incoming = stream.trades.map(t => ({ ...t, trader: stream.traders.get(t.traderId) ?? t.trader }))
+      .filter(t => matchesTrade(t, filters, stream.traders));
+    if (incoming.length) qc.setQueryData<AnalystTrade[]>(listKey, (previous = []) => mergeLiveTrades(previous, incoming, limit));
+  }, [stream.enabled, stream.trades, stream.traders, paused, paramsKey, qc, listKey, limit]);
+
   // Poll for anything newer than what we hold and merge it into the cached list.
   const poll = useQuery({
     queryKey: ["trades", "poll", paramsKey, limit, maxSeq],
@@ -241,9 +252,7 @@ export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs 
       onFreshness?.(res.freshness);
       if (res.trades.length > 0) {
         qc.setQueryData<AnalystTrade[]>(listKey, (prev = []) => {
-          const ids = new Set(prev.map((t) => t.id));
-          const fresh = res.trades.filter((t) => !ids.has(t.id));
-          return fresh.length === 0 ? prev : [...fresh, ...prev].slice(0, limit);
+          return mergeLiveTrades(prev, res.trades, limit);
         });
       }
       return res.trades.length;

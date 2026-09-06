@@ -46,7 +46,7 @@ provider (mock | kolhood) → sync (lib/services/sync.ts) → Postgres (Drizzle)
 - **Analyst Score** (`lib/services/score.ts`): 0–100 from five stored components — trader quality 30%, net accumulation 25%, breadth 20%, conviction 15%, momentum 10%. Explained in a popover on every score. Community ratings (1–10) are a separate, clearly labelled metric.
 - **Guests**: anonymous HttpOnly cookie; only a salted SHA-256 hash is stored. IPs are hashed, never stored raw.
 - **Anti-spam**: per-guest DB-backed sliding windows, per-IP in-memory limiter, cooldown, duplicate detection, honeypot field, URL cap, content policy, reports. Thresholds are env-configurable.
-- **Live**: clients poll `/api/trades?after=<seq>` every 5 s; new rows insert at the top. The indicator shows **LIVE** only when the last successful sync is under 60 s old, otherwise **DELAYED**.
+- **Live**: browsers receive KOLHOOD's public Socket.IO `trade:new` events immediately, with reconnect/backfill and transaction identity deduplication. Database polling reconciles saved metadata every five seconds. The indicator shows **LIVE** when the source socket is connected and **RECONNECTING** during connection loss; database freshness is reported separately.
 
 ## Scripts
 

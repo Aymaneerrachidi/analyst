@@ -6,6 +6,27 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "../lib/db/schema";
 import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/services/pnl";
+import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
+
+test("stream events reconcile with persisted IDs, preserve cursor and reject invalid source values", () => {
+  const event = { tx_hash: `0x${"a".repeat(64)}`, wallet_address: `0x${"b".repeat(40)}`, action: "buy", token_address: `0x${"c".repeat(40)}`, token_symbol: "TEST", usd_value: 120, timestamp: "2026-09-06T12:00:00Z" };
+  const live = parseLiveTrade(event);
+  assert.ok(live);
+  assert.equal(live.seq, 0);
+  assert.equal(live.price, null);
+  const stored = { ...live, id: "kh-123", seq: 456, trader: { ...live.trader, name: "Source name", avatar: "https://example.org/source.png" } };
+  const merged = mergeLiveTrades([live], [stored, live], 60);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].id, "kh-123");
+  assert.equal(merged[0].seq, 456);
+  assert.equal(merged[0].trader.avatar, stored.trader.avatar);
+  assert.equal(matchesTrade(live, { filter: "sells" }, new Map()), false);
+  assert.equal(matchesTrade(live, { filter: "buys", q: "$test", minUsd: "100" }, new Map()), true);
+  assert.equal(matchesTrade(live, { minUsd: "500" }, new Map()), false);
+  assert.equal(parseLiveTrade({ ...event, timestamp: "invalid" }), null);
+  assert.equal(parseLiveTrade({ ...event, tx_hash: "bad" }), null);
+  assert.equal(parseLiveTrade({ ...event, usd_value: null })?.amountUsd, null);
+});
 
 const client = new PGlite();
 const db = drizzle(client, { schema });

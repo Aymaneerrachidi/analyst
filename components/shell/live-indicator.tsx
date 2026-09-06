@@ -5,6 +5,7 @@ import { apiGet } from "@/lib/client/fetcher";
 import type { Freshness } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
+import { useTradeStream } from "@/components/live/stream-provider";
 
 export function useFreshness(initial?: Freshness) {
   return useQuery({
@@ -20,6 +21,8 @@ const LABELS = {
   live: { text: "LIVE", dot: "bg-neon", textClass: "text-neon", animate: true },
   delayed: { text: "DELAYED", dot: "bg-warning", textClass: "text-warning", animate: false },
   offline: { text: "OFFLINE", dot: "bg-muted", textClass: "text-muted", animate: false },
+  connecting: { text: "CONNECTING", dot: "bg-warning", textClass: "text-warning", animate: false },
+  reconnecting: { text: "RECONNECTING", dot: "bg-warning", textClass: "text-warning", animate: false },
 } as const;
 
 export function LiveIndicator({
@@ -34,11 +37,12 @@ export function LiveIndicator({
   className?: string;
 }) {
   const { data } = useFreshness(initial);
-  const status = data?.status ?? "offline";
+  const stream = useTradeStream();
+  const status = stream.enabled ? stream.status : data?.status ?? "offline";
   const meta = LABELS[status];
   const ageSec = data?.ageMs !== null && data?.ageMs !== undefined ? Math.round(data.ageMs / 1000) : null;
   const tip =
-    status === "live"
+    stream.enabled ? (status === "live" ? "Connected to KOLHOOD's live trade stream. Trades appear as the source broadcasts them; analytics sync separately." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
       ? `Feed synced ${ageSec ?? 0}s ago from ${data?.provider ?? "provider"}.`
       : status === "delayed"
         ? `Last successful sync was ${ageSec ?? "?"}s ago. Data may be stale.`
