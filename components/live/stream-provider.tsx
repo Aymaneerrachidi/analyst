@@ -31,7 +31,7 @@ export function TradeStreamProvider({ enabled, children }: { enabled: boolean; c
       } catch { /* The socket and saved database remain available independently. */ }
       finally { snapshotPending = false; }
     };
-    void fetch("/api/traders?period=7d&limit=200", { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(body => {
+    void fetch("/api/traders?period=7d&limit=500", { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(body => {
       if (!disposed && Array.isArray(body?.traders)) setTraders(new Map(body.traders.map((t: AnalystTrader) => [t.id, t])));
     }).catch(() => undefined);
     // This is the public, unauthenticated event channel used by KOLHOOD's own feed.

@@ -34,11 +34,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 40) : "";
 
   await ensureFresh("trades", 8_000);
-  let traders = await listTraders({ period, filter, limit: 100 });
-  if (q) {
-    const needle = q.toLowerCase();
-    traders = traders.filter((t) => t.name.toLowerCase().includes(needle) || t.handle.toLowerCase().includes(needle) || t.wallet.includes(needle));
-  }
+  const traders = await listTraders({ period, filter, limit: 500, query: q });
 
   return (
     <div>
@@ -46,6 +42,11 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
         <FilterTabs value={period} options={RANKING_PERIODS.map((p) => ({ value: p, label: PERIOD_LABELS[p], href: href(p, filter, q) }))} ariaLabel="Ranking period" />
       </PageHeader>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <form className="flex items-center gap-2" action="/traders">
+          <input type="hidden" name="period" value={period} /><input type="hidden" name="filter" value={filter} />
+          <input name="q" defaultValue={q} aria-label="Find a trader" placeholder="Name or wallet address" className="h-9 w-52 rounded-lg border border-border bg-surface px-3 text-sm" />
+          <button className="h-9 rounded-lg border border-border px-3 text-xs">Search</button>
+        </form>
         <FilterTabs size="sm" value={filter} options={FILTERS.map((f) => ({ ...f, href: href(period, f.value, q) }))} ariaLabel="Trader filter" />
         {q && (
           <p className="text-sm text-secondary">

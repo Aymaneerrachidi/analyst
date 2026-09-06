@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { ArrowRightIcon, ArrowUpRightIcon, ChatCircleIcon, ArrowUpIcon, PulseIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRightIcon, ArrowUpRightIcon, ChatCircleIcon, ArrowUpIcon } from "@phosphor-icons/react/dist/ssr";
 import { ensureFresh, getFreshness } from "@/lib/services/sync";
 import { getOverviewStats, listTokens, listTraders, listTrades } from "@/lib/services/intelligence";
 import { listPosts } from "@/lib/social/posts";
@@ -14,12 +14,10 @@ import { TopBuysTable } from "@/components/tokens/token-table";
 import { TraderMiniList } from "@/components/traders/trader-table";
 import { LiveTradesFeed } from "@/components/trades/trade-table";
 import { FilterTabs } from "@/components/ui/filter-tabs";
-import { LinkButton } from "@/components/ui/button";
 import { TraderAvatar } from "@/components/common/avatar";
 import { TimeAgo } from "@/components/common/time-ago";
 import { RichBody } from "@/components/social/rich-body";
 import { EmptyState } from "@/components/ui/states";
-import { ChainArtwork } from "@/components/home/chain-artwork";
 import { ScoreGuide } from "@/components/home/score-guide";
 
 export const dynamic = "force-dynamic";
@@ -48,38 +46,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <div>
-      <section className="relative grid items-center gap-0 py-9 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:py-9 lg:py-12" aria-labelledby="home-title">
-        <div className="relative">
-          <p className="mb-5 flex items-center gap-2 text-xs font-medium text-secondary"><PulseIcon className="h-4 w-4 text-neon" /> A closer look at onchain conviction</p>
-          <h1 id="home-title" className="max-w-5xl text-[clamp(2.25rem,4.55vw,4rem)] font-medium leading-[1.08] tracking-[-0.055em]">
-            Follow the money.<br /><span className="text-neon">See the conviction.</span>
-          </h1>
-          <p className="mt-5 max-w-[420px] text-[15px] leading-relaxed text-secondary md:text-base">See what tracked traders are buying on Robinhood Chain. Follow their moves. Build your own view.</p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <LinkButton href="/live" variant="primary" size="lg">Explore live trades <ArrowUpRightIcon className="h-[18px] w-[18px]" /></LinkButton>
-            <LinkButton href="/traders" variant="ghost" size="lg" className="px-3">Meet the traders <ArrowRightIcon className="h-4 w-4" /></LinkButton>
-          </div>
-        </div>
-        <div className="mx-auto -mb-4 mt-0 w-full max-w-[300px] md:my-0 md:max-w-none"><ChainArtwork /></div>
+      <section className="flex flex-wrap items-center justify-between gap-4 border-b border-border py-5">
+        <div><p className="mb-1 text-[11px] text-neon">ROBINHOOD CHAIN / OVERVIEW</p><h1 id="home-title" className="text-2xl font-medium tracking-tight md:text-3xl">The market, in focus.</h1><p className="mt-1 text-xs text-secondary">Follow conviction. Discover tokens. See trades as they arrive.</p></div>
+        <Link href="/watchlist" className="rounded-lg border border-border px-4 py-2.5 text-xs text-secondary hover:text-neon">Your watchlist <span aria-hidden>↗</span></Link>
       </section>
-
-      <section aria-label="Tracked market activity" className="border-y border-border">
-        <dl className="grid grid-cols-2 py-1 sm:grid-cols-4 sm:py-5">
-          <Stat label="Buy volume" detail="Past 24 hours" value={formatUsd(stats.buyUsd24h)} accent />
-          <Stat label="Tracked trades" detail="Past 24 hours" value={formatCompact(stats.trades24h)} />
-          <Stat label="Active tokens" detail="Past 24 hours" value={formatCompact(stats.tokensActive24h)} />
-          <Stat label="Tracked traders" detail="In our coverage" value={formatCompact(stats.trackedTraders)} />
-        </dl>
-        <p className="border-t border-border py-2.5 text-[11px] leading-relaxed text-muted">
-          {freshness.isMock ? "Synthetic demo activity" : <><a href="https://kolhood.io" target="_blank" rel="noreferrer" className="underline decoration-border-hover underline-offset-2 hover:text-primary">KOLHOOD</a> tracked-wallet activity</>}<span className="mx-2">/</span>Coverage reflects tracked wallets, not the whole network.
-        </p>
+      <section className="grid grid-cols-2 divide-x divide-border border-b border-border md:grid-cols-4" aria-label="Market overview">
+        {[['Tracked traders', formatCompact(freshness.trackedTraders)], ['Trades · 24H', formatCompact(stats.trades24h)], ['Tracked buying · 24H', formatUsd(stats.buyUsd24h)], ['Active tokens · 24H', formatCompact(stats.tokensActive24h)]].map(([label,value])=><div key={label} className="p-4"><p className="text-[10px] text-muted">{label}</p><p className="mt-1 text-xl font-medium tnum">{value}</p></div>)}
       </section>
-
-      <section className="section-space">
-        <SectionHeader title="On the radar" description="Tokens attracting attention from tracked traders in the last 24 hours." href="/tokens" hrefLabel="All tokens" />
-        {trending.length ? <TrendingStrip tokens={trending} /> : <EmptyState title="Waiting for token activity" description="Tracked tokens appear here after the next successful sync." />}
-      </section>
-
+      <section className="mt-5"><SectionHeader title="Trending now" href="/tokens" hrefLabel="All tokens" /><TrendingStrip tokens={trending} /></section>
       <div className="section-space grid grid-flow-dense items-start gap-10 xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] xl:gap-7">
         <section className="min-w-0">
           <SectionHeader
@@ -128,16 +102,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-function Stat({ label, detail, value, accent }: { label: string; detail: string; value: string; accent?: boolean }) {
-  return (
-    <div className="market-stat px-4 py-5 first:pl-0 sm:py-1 sm:pl-7">
-      <dt className="text-xs font-medium text-secondary">{label}</dt>
-      <dd className={`mt-2 font-mono text-[clamp(1.35rem,2.3vw,2rem)] font-medium tracking-[-0.055em] ${accent ? "text-neon" : "text-primary"}`}>{value}</dd>
-      <dd className="mt-1 text-[11px] text-muted">{detail}</dd>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { WorkspaceTabs } from "@/components/workspace/tabs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -54,13 +55,13 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
   const bestRank = (Object.entries(ranks) as [RankingPeriod, number][]).sort((a, b) => a[1] - b[1])[0];
 
   return (
-    <div className="space-y-10 pt-7 md:pt-10">
+    <div className="space-y-5 pt-5">
       {/* Header */}
       <section className="flex flex-col gap-6 border-b border-border pb-8 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">
-          <TraderAvatar name={trader.name} id={trader.id} avatar={trader.avatar} size="xl" />
+          <TraderAvatar name={trader.name} id={trader.id} avatar={trader.avatar} size="lg" />
           <div className="min-w-0">
-            <h1 className="break-words text-3xl font-medium tracking-[-0.045em] md:text-[42px]">{trader.name}</h1>
+            <h1 className="break-words text-2xl font-medium tracking-[-0.035em] md:text-3xl">{trader.name}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-secondary">
               <CopyButton value={trader.wallet} label="Copy wallet address">
                 <span className="text-secondary">{shortAddress(trader.wallet, 6)}</span>
@@ -100,6 +101,7 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
         </div>
       </section>
 
+      {trader.statsSource && <p className="rounded-lg border border-border bg-surface p-3 text-xs leading-relaxed text-secondary">Additional history from <a href={`https://www.defined.fi/trader/${trader.wallet}`} target="_blank" rel="noreferrer" className="text-neon">Defined</a>, captured {trader.statsUpdatedAt?.slice(0, 10)}. Imported history is partial; period rankings and recorded trade totals can differ.</p>}
       {/* Stats */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricCard label="Net PnL" value={<MoneyDelta value={trader.realizedPnl} />} hint="Realized, all tracked history" />
@@ -133,6 +135,7 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
         />
       </section>
 
+      <WorkspaceTabs labels={["Token history", "Swaps", "Discussion"]}>
       {/* Positions */}
       <section>
         <SectionHeader eyebrow="Tokens" title="Current and recent tokens" description="Holdings come from the data source; bought, sold and realized figures come from tracked trades." />
@@ -196,6 +199,7 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
       <section>
         <DiscussionThread targetType="trader" targetId={trader.id} initialComments={comments} title={`Discuss ${trader.name}`} placeholder={`What do you think about ${trader.name}?`} />
       </section>
+      </WorkspaceTabs>
     </div>
   );
 }

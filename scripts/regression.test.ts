@@ -7,6 +7,23 @@ import { eq, sql } from "drizzle-orm";
 import * as schema from "../lib/db/schema";
 import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/services/pnl";
 import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
+import { normalizeDefinedImport } from "../lib/providers/defined-import";
+
+test("Defined import validates chain, resolves quote token and deduplicates logs before grouping transactions", () => {
+  const wallet = `0x${"b".repeat(40)}`;
+  const token = `0x${"c".repeat(40)}`;
+  const envelope = { capturedAt: "2026-09-06T12:00:00Z", networkId: 4663, rows: [{ address: wallet, networkId: 4663, wallet: { displayName: "Fixture", avatarUrl: null, twitterUsername: null } }] };
+  const event = { networkId: 4663, maker: wallet, transactionHash: `0x${"d".repeat(64)}`, logIndex: 1, timestamp: 1788696000, eventDisplayType: "Buy", quoteToken: "token1", token0Address: wallet, token1Address: token, data: { amountNonLiquidityToken: "2", priceUsd: "10", priceUsdTotal: "20" } };
+  const records = [{ operation: "Tokens", data: { tokens: [{ address: token, networkId: 4663, symbol: "FIXTURE", name: "Fixture" }] } }, { operation: "GetTokenEventsForMaker", data: { getTokenEventsForMaker: { items: [event, event, { ...event, logIndex: 2 }, { ...event, logIndex: 3, networkId: 56 }, { ...event, logIndex: 4, maker: token }, { ...event, logIndex: 5, data: { ...event.data, priceUsdTotal: "Infinity" } }] } } }];
+  const result = normalizeDefinedImport(envelope, [{ wallet, records }]);
+  assert.equal(result.trades.length, 1);
+  assert.equal(result.trades[0].tokenAddress, token);
+  assert.equal(result.trades[0].amountUsd, 40);
+  assert.equal(result.trades[0].tokenAmount, 4);
+  assert.equal(result.trades[0].price, 10);
+  assert.equal(result.skipped, 1);
+  assert.throws(() => normalizeDefinedImport({ ...envelope, networkId: 56 }, []));
+});
 
 test("stream events reconcile with persisted IDs, preserve cursor and reject invalid source values", () => {
   const event = { tx_hash: `0x${"a".repeat(64)}`, wallet_address: `0x${"b".repeat(40)}`, action: "buy", token_address: `0x${"c".repeat(40)}`, token_symbol: "TEST", usd_value: 120, timestamp: "2026-09-06T12:00:00Z" };
@@ -243,4 +260,28 @@ test("live community reads exclude seeded posts and ratings", async () => {
   assert.equal((await listPosts({ guestId: null })).some(p => p.id === "seed-verification-post"), false);
   assert.equal(await getPost("seed-verification-post", null), null);
   assert.equal((await getRatingSummary("token", "seed-token", null)).count, 0);
+});
+
+
+test("Defined replay is idempotent and never invents all-time rankings or replaces an existing identity", async () => {
+  const wallet = '0x' + 'e'.repeat(40);
+  const envelope = { capturedAt: '2026-09-06T12:00:00Z', networkId: 4663, rows: [{ address: wallet, networkId: 4663, realizedProfitUsd30d: '50', swaps30d: 3, realizedProfitUsd1y: '999', wallet: { displayName: 'Imported fixture', avatarUrl: null, twitterUsername: null } }] };
+  const { importDefinedSnapshot } = await import('../lib/services/defined-import');
+  const first = await importDefinedSnapshot(envelope, []);
+  assert.equal(first.added, 1);
+  const replay = await importDefinedSnapshot(envelope, []);
+  assert.equal(replay.added, 0);
+  const snapshots = await db.select().from(schema.traderSnapshots).where(eq(schema.traderSnapshots.traderId, wallet));
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].period, '30d');
+  assert.equal(snapshots[0].pnl, 50);
+  const { listTraders } = await import('../lib/services/intelligence');
+  const found = await listTraders({ query: 'Imported fixture', period: '30d' });
+  assert.equal(found.length, 1);
+  assert.equal(found[0].statsSource, 'Defined');
+  assert.equal(found[0].buys, null);
+  await db.update(schema.traders).set({ name: 'Preferred identity' }).where(eq(schema.traders.id, wallet));
+  await importDefinedSnapshot(envelope, []);
+  const [identity] = await db.select().from(schema.traders).where(eq(schema.traders.id, wallet));
+  assert.equal(identity.name, 'Preferred identity');
 });

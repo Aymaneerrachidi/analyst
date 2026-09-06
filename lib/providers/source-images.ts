@@ -9,6 +9,8 @@ const ALLOWED = new Set(["www.ponsfamily.com", "ponsfamily.com", "kolhood.io", "
 // Image hosts observed in contract-matched launchpad metadata.
 for (const host of ["j7m.io", "iili.io", "metadata.j7tracker.io", "cymetica.com", "gmgn.ai", "meta.mwmwmwmwmwmwmwmwmw.uk", "m.rapidlaunch.io", "axiomtrading.sfo3.cdn.digitaloceanspaces.com", "md.sdfgsdfsdf.uk", "token-media.defined.fi", "ipfs.launchblitz.ai", "app.zxwwhm.us", "replicate.delivery"]) ALLOWED.add(host);
 const pending = new Map<string, Promise<{ bytes: Buffer; type: string }>>();
+// ENS avatar service, present in Defined's public wallet identity metadata.
+ALLOWED.add("euc.li");
 const failures = new Map<string, number>();
 
 export async function sourceImage(source: string): Promise<{ bytes: Buffer; type: string }> {

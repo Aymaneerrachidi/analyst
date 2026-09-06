@@ -12,7 +12,8 @@ export async function GET(req: Request) {
   const traders = await listTraders({
     period: oneOf<RankingPeriod>(searchParam(url, "period"), RANKING_PERIODS, "30d"),
     filter: oneOf(searchParam(url, "filter"), FILTERS, "all"),
-    limit: intParam(url, "limit", 50, 1, 200),
+    limit: intParam(url, "limit", 50, 1, 500),
+    query: searchParam(url, "q"),
   });
   return NextResponse.json({ traders }, noStore);
 }

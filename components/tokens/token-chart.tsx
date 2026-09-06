@@ -48,7 +48,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
         {view === "flow" && <p className="inline-flex gap-4 text-[11px]"><span className="text-neon">Buys</span><span className="text-negative">Sells</span></p>}
         {data?.source === "mock" && <span className="text-[11px] text-warning">Synthetic demo data</span>}
       </div>
-      <div className="mt-6 h-[280px] min-w-0 md:h-[330px]" aria-busy={query.isFetching}>
+      <div className="mt-4 h-[300px] min-w-0 md:h-[380px]" aria-busy={query.isFetching}>
         {query.isLoading ? <Skeleton className="h-full w-full" /> : query.isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-sm text-secondary"><p>The chart couldn’t load.</p><Button size="sm" onClick={() => void query.refetch()}>Retry chart</Button></div>
         ) : !hasChart ? (

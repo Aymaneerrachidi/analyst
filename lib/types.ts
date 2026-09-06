@@ -19,6 +19,8 @@ export interface AnalystTraderRef {
 }
 
 export interface AnalystTrader extends AnalystTraderRef {
+  statsSource?: "Defined";
+  statsUpdatedAt?: string;
   twitterUrl?: string | null;
   pnl24h?: number | null;
   pnl7d?: number | null;

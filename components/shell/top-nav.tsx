@@ -25,7 +25,7 @@ export function TopNav() {
   const { open } = useSearchCommand();
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-lg">
-      <div className="app-container flex h-[72px] items-center justify-between gap-5 lg:h-20">
+      <div className="app-container flex h-16 items-center justify-between gap-4">
         <Wordmark />
         <nav className="hidden h-full items-center gap-5 lg:flex xl:gap-7" aria-label="Primary">
           {NAV_ITEMS.map((item) => {
@@ -55,12 +55,12 @@ export function TopNav() {
           >
             <span className="inline-flex items-center gap-2">
               <MagnifyingGlassIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Search anything</span>
+              <span className="hidden whitespace-nowrap sm:inline">Search markets</span>
             </span>
             <kbd className="hidden rounded border border-border px-1.5 py-px font-mono text-[10px] text-muted sm:inline">/</kbd>
           </button>
           <Link href="/live" className="hidden h-10 items-center gap-2 rounded-full bg-neon px-4 text-[13px] font-medium text-background transition-colors hover:bg-neon-hover xl:inline-flex">
-            Explore trades <ArrowUpRightIcon className="h-4 w-4" />
+            Live terminal <ArrowUpRightIcon className="h-4 w-4" />
           </Link>
         </div>
       </div>

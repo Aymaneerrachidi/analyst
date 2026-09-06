@@ -139,12 +139,13 @@ export interface ListTradersOptions {
   period?: RankingPeriod;
   filter?: TraderFilter;
   limit?: number;
+  query?: string;
 }
 
 export async function listTraders(opts: ListTradersOptions = {}): Promise<AnalystTrader[]> {
   const db = await getDb();
   const period = opts.period ?? "30d";
-  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
   const filter = opts.filter ?? "all";
 
   let order: SQL;
@@ -166,11 +167,14 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
     .select({ trader: traders, snap: traderSnapshots })
     .from(traderSnapshots)
     .innerJoin(traders, eq(traderSnapshots.traderId, traders.id))
-    .where(and(eq(traderSnapshots.period, period), filter === "winrate" ? gte(traderSnapshots.trades, 5) : undefined))
-    .orderBy(order, desc(traders.realizedPnl))
+    .where(and(eq(traderSnapshots.period, period), filter === "winrate" ? gte(traderSnapshots.trades, 5) : undefined,
+      opts.query ? or(ilike(traders.name, `%${opts.query}%`), ilike(traders.handle, `%${opts.query}%`), ilike(traders.wallet, `%${opts.query}%`)) : undefined))
+    .orderBy(sql`${order} nulls last`, asc(traders.id))
     .limit(limit);
 
   const ids = rows.map((r) => r.trader.id);
+  const sourceRows = ids.length ? await db.select().from(schema.appMeta).where(inArray(schema.appMeta.key, ids.map((id) => `defined:wallet:${id}`))) : [];
+  const sources = new Map(sourceRows.map((s) => [s.key.replace("defined:wallet:", ""), s]));
   const [topTokens, ratings] = await Promise.all([topTokensForTraders(ids), getRatingAggregates("trader", ids)]);
 
   const list = rows.map(({ trader, snap }, i) => ({
@@ -180,14 +184,16 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
     roi: snap.roi,
     winRate: snap.winRate ?? trader.winRate,
     trades: snap.trades,
-    buys: snap.buys,
-    sells: snap.sells,
+    buys: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? null : snap.buys,
+    sells: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? null : snap.sells,
     avgTradeSize: trader.avgTradeSize,
     volumeUsd: snap.volumeUsd ?? trader.volumeUsd,
     bestTradeUsd: snap.bestTradeUsd ?? trader.bestTradeUsd,
     lastActive: trader.lastActiveAt?.toISOString() ?? null,
     topToken: topTokens.get(trader.id) ?? null,
     rank: filter === "all" ? (snap.rank ?? i + 1) : i + 1,
+    statsSource: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? "Defined" as const : undefined,
+    statsUpdatedAt: sources.get(trader.id)?.updatedAt.toISOString(),
     communityRating: ratings.get(trader.id)?.average ?? null,
     ratingCount: ratings.get(trader.id)?.count ?? 0,
   }));
@@ -207,13 +213,16 @@ export async function getTrader(id: string): Promise<AnalystTrader | null> {
   const byPeriod = new Map(snaps.map((s) => [s.period as RankingPeriod, s]));
   const [topTokens, ratings] = await Promise.all([topTokensForTraders([row.id]), getRatingAggregates("trader", [row.id])]);
   const all = byPeriod.get("all");
+  const [source] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, `defined:wallet:${row.id}`));
   return {
     ...traderRef(row),
     twitterUrl: row.twitterUrl,
     pnl24h: byPeriod.get("24h")?.pnl ?? null,
     pnl7d: byPeriod.get("7d")?.pnl ?? null,
     pnl30d: byPeriod.get("30d")?.pnl ?? null,
-    realizedPnl: all?.pnl ?? row.realizedPnl ?? null,
+    realizedPnl: all?.pnl ?? (source ? null : row.realizedPnl) ?? null,
+    statsSource: source ? "Defined" : undefined,
+    statsUpdatedAt: source?.updatedAt.toISOString(),
     roi: all?.roi ?? byPeriod.get("30d")?.roi ?? null,
     winRate: row.winRate ?? all?.winRate ?? null,
     trades: Math.max(row.totalTrades, all?.trades ?? 0),

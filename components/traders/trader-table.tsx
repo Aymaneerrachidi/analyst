@@ -63,6 +63,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                       <span className="flex flex-col">
                         <span className="font-medium text-primary group-hover:underline">{t.name}</span>
                         <span className="font-mono text-xs text-muted">{shortAddress(t.wallet)}</span>
+                        {t.statsSource && <span className="text-[10px] text-muted" title={`Snapshot captured ${t.statsUpdatedAt}`}>Defined · {t.statsUpdatedAt?.slice(0, 10)}</span>}
                       </span>
                     </Link>
                   </td>
@@ -78,9 +79,9 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                   <td className={cn(CELL, "text-right tnum")}>{formatPct(t.winRate, { signed: false, digits: 0 })}</td>
                   <td className={cn(CELL, "text-right tnum")}>{t.trades ?? "—"}</td>
                   <td className={cn(CELL, "text-right tnum")}>
-                    <span className="text-neon">{t.buys ?? 0}</span>
+                    <span className="text-neon">{t.buys ?? "Unavailable"}</span>
                     <span className="text-muted"> / </span>
-                    <span className="text-negative">{t.sells ?? 0}</span>
+                    <span className="text-negative">{t.sells ?? "Unavailable"}</span>
                   </td>
                   <td className={CELL}>
                     {t.topToken ? (

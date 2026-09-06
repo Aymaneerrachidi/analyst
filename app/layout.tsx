@@ -16,6 +16,7 @@ import type { Freshness } from "@/lib/types";
 import { LiveIndicator } from "@/components/shell/live-indicator";
 import { TradeStreamProvider } from "@/components/live/stream-provider";
 import { env } from "@/lib/env";
+import { DiscoveryPanel } from "@/components/workspace/discovery";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"], display: "swap" });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], display: "swap" });
@@ -53,8 +54,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <TooltipProvider>
             <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-neon focus:px-5 focus:py-3 focus:text-background">Skip to content</a>
             <TopNav />
+            <DiscoveryPanel />
+            <div className="workspace-content">
             <div className="app-container">
-              <div className="flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-border py-3 text-xs">
+              <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-[11px]">
                 <span className="inline-flex items-center gap-2.5 font-medium text-primary">
                   <span className="h-2 w-2 rounded-full border-2 border-neon" aria-hidden />
                   Robinhood Chain
@@ -65,6 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
             <main id="main-content" className="app-container min-w-0 flex-1 pb-12" tabIndex={-1}>{children}</main>
             <Footer />
+            </div>
             <MobileNav />
             <SearchCommandDialog />
             <Toaster />

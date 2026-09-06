@@ -6,7 +6,7 @@ test("overview fits desktop and mobile, and search, score details, and navigatio
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Follow the money.");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("The market, in focus.");
   await expect(page.getByText("MOCK DATA", { exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   await mkdir(".playwright-mcp", { recursive: true });
@@ -33,6 +33,14 @@ test("overview fits desktop and mobile, and search, score details, and navigatio
   await page.getByRole("option").first().click();
   await expect(page).toHaveURL(/\/token\//);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("PONS");
+  await page.getByRole("button", { name: "Watch PONS", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove PONS from watchlist", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove PONS from watchlist", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Active traders", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Traders active in this token" })).toBeVisible();
+  await page.getByRole("tab", { name: "Active traders", exact: true }).press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Swaps", exact: true })).toHaveAttribute("aria-selected", "true");
   const chart = page.getByRole("region", { name: "PONS chart" });
   await chart.scrollIntoViewIfNeeded();
   await chart.getByRole("button", { name: "7D", exact: true }).click();
@@ -42,6 +50,10 @@ test("overview fits desktop and mobile, and search, score details, and navigatio
   await chart.getByRole("button", { name: "7D", exact: true }).click();
   await expect(chart.locator(".recharts-surface").first()).toBeVisible();
   await page.screenshot({ path: ".playwright-mcp/analyst-token.png", fullPage: true });
+  await page.goto("/watchlist");
+  await expect(page.getByRole("heading", { name: "Your watchlist" })).toBeVisible();
+  await page.getByRole("button", { name: "Remove PONS from watchlist", exact: true }).click();
+  await expect(page.getByText("Your next move starts here.")).toBeVisible();
   expect(errors).toEqual([]);
 });
 

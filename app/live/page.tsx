@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Live Trades" };
 
 export default async function LiveTradesPage() {
   await ensureFresh("trades", 8_000);
-  const [trades, traders, freshness] = await Promise.all([listTrades({ limit: 60 }), listTraders({ period: "all", limit: 200 }), getFreshness()]);
+  const [trades, traders, freshness] = await Promise.all([listTrades({ limit: 60 }), listTraders({ period: "30d", limit: 500 }), getFreshness()]);
   return (
     <div>
       <PageHeader title="Every move, in view." description="Follow buys and sells from tracked wallets on Robinhood Chain as they arrive.">

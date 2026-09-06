@@ -20,7 +20,7 @@
   --negative: #ff7a81;
   --warning: #ffcf33;
 
-  --radius-card: 16px;
+  --radius-card: 10px;
 }
 
 @theme inline {
@@ -88,13 +88,26 @@ button:disabled { cursor: not-allowed; }
 
 @utility app-container {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1900px;
   margin-inline: auto;
-  padding-inline: clamp(1rem, 3vw, 3rem);
+  padding-inline: clamp(0.75rem, 1.4vw, 1.5rem);
 }
 
 @utility section-space {
-  margin-top: clamp(3rem, 6vw, 5.5rem);
+  margin-top: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.discovery-panel { display: none; }
+.workspace-content { min-width: 0; flex: 1; }
+@media (min-width: 1280px) {
+  .discovery-panel { display: flex; flex-direction: column; position: fixed; inset-block: 64px 0; inset-inline-start: 0; width: 250px; border-inline-end: 1px solid var(--border); background: var(--surface); z-index: 30; }
+  .workspace-content { margin-inline-start: 250px; }
+}
+.token-workspace { display: grid; gap: 16px; padding-block-start: 20px; min-width: 0; }
+.token-main, .token-insights { min-width: 0; }
+@media (min-width: 1100px) {
+  .token-workspace { grid-template-columns: minmax(0, 1fr) 260px; align-items: start; }
+  .token-insights { position: sticky; top: 80px; }
 }
 
 @utility text-balance { text-wrap: balance; }

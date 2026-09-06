@@ -69,7 +69,7 @@ function toHandle(name: string): string {
 // Upsert helpers
 // ---------------------------------------------------------------------------
 
-async function upsertTraders(
+export async function upsertTraders(
   db: Db,
   rows: { wallet: string; name: string; handle?: string; avatar?: string; twitterUrl?: string }[],
 ): Promise<void> {
@@ -113,7 +113,7 @@ async function ensureTraderStubs(db: Db, wallets: string[]): Promise<void> {
   }
 }
 
-async function upsertTokens(
+export async function upsertTokens(
   db: Db,
   rows: {
     address: string;
@@ -167,7 +167,7 @@ async function upsertTokens(
   }
 }
 
-async function insertTrades(db: Db, rows: UpstreamTrade[]): Promise<number> {
+export async function insertTrades(db: Db, rows: UpstreamTrade[]): Promise<number> {
   if (rows.length === 0) return 0;
   await ensureTraderStubs(
     db,
@@ -279,7 +279,7 @@ function toPnlInput(rows: TradeLite[]): PnlInputTrade[] {
 }
 
 /** Recomputes realized PnL, trader-token stats, trader aggregates and token snapshots from trades. */
-async function recomputeDerived(db: Db, opts: { providerOwnsRankings: boolean }): Promise<void> {
+export async function recomputeDerived(db: Db, opts: { providerOwnsRankings: boolean }): Promise<void> {
   const now = Date.now();
   const all = await loadTrades(db, now - PERIOD_MS.all);
   const input = toPnlInput(all);
@@ -399,10 +399,12 @@ async function writeSnapshots(
   }[],
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.delete(traderSnapshots).where(eq(traderSnapshots.period, period));
+    // A provider owns only the wallets it returned. Preserve other sources.
+    if (rows.length) await tx.delete(traderSnapshots).where(and(eq(traderSnapshots.period, period), inArray(traderSnapshots.traderId, rows.map((r) => r.traderId))));
     for (const batch of chunk(rows, 200)) {
       await tx.insert(traderSnapshots).values(batch.map((r) => ({ ...r, period, computedAt: new Date() })));
     }
+    await tx.execute(sql`update trader_snapshots s set rank = r.rank from (select id, row_number() over (order by pnl desc, trader_id asc)::int as rank from trader_snapshots where period = ${period}) r where s.id = r.id`);
   });
 }
 
@@ -597,7 +599,9 @@ export async function refreshTokenMarketData(address: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function latestTradeTimestamp(db: Db): Promise<string | undefined> {
-  const [row] = await db.select({ ts: trades.timestamp }).from(trades).orderBy(desc(trades.timestamp)).limit(1);
+  // An auxiliary history import must not advance KOLHOOD's ingestion cursor.
+  const [row] = await db.select({ ts: trades.timestamp }).from(trades)
+    .where(sql`${trades.id} not like 'defined:%'`).orderBy(desc(trades.timestamp)).limit(1);
   return row?.ts.toISOString();
 }
 

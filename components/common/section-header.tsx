@@ -42,9 +42,9 @@ export function SectionHeader({
 
 export function PageHeader({ title, description, children, className }: { title: string; description?: string; children?: ReactNode; className?: string }) {
   return (
-    <div className={cn("mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-border pb-7 pt-5 md:mb-8 md:pb-8 md:pt-8", className)}>
+    <div className={cn("mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border py-5", className)}>
       <div>
-        <h1 className="text-3xl font-medium tracking-[-0.045em] text-primary md:text-[42px]">{title}</h1>
+        <h1 className="text-2xl font-medium tracking-[-0.035em] text-primary md:text-[28px]">{title}</h1>
         {description && <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary md:text-[15px]">{description}</p>}
       </div>
       {children && <div className="flex max-w-full flex-wrap items-center gap-2">{children}</div>}

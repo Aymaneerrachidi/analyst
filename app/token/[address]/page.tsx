@@ -22,6 +22,8 @@ import { EmptyState } from "@/components/ui/states";
 import { NetFlow } from "@/components/tokens/token-table";
 import { LiveTradesFeed } from "@/components/trades/trade-table";
 import { DiscussionThread } from "@/components/social/discussion-thread";
+import { WatchButton } from "@/components/workspace/watchlist";
+import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { TokenChart } from "@/components/tokens/token-chart";
 
 export const dynamic = "force-dynamic";
@@ -53,13 +55,14 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
   const hasMarketData = token.price !== null && token.price !== undefined;
 
   return (
-    <div className="space-y-10 pt-7 md:pt-10">
+    <div className="token-workspace">
+      <div className="token-main space-y-4">
       {/* Header */}
-      <section className="flex flex-col gap-6 border-b border-border pb-8 md:flex-row md:items-start md:justify-between">
+      <section className="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">
-          <TokenAvatar symbol={token.symbol} address={token.address} image={token.image} size="xl" />
+          <TokenAvatar symbol={token.symbol} address={token.address} image={token.image} size="lg" />
           <div className="min-w-0">
-            <h1 className="break-words text-3xl font-medium tracking-[-0.045em] md:text-[42px]">
+            <h1 className="break-words text-2xl font-medium tracking-[-0.035em]">
               ${token.symbol} <span className="text-secondary">{token.name !== token.symbol ? token.name : ""}</span>
             </h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
@@ -80,53 +83,21 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
             </div>
           </div>
         </div>
-        <FilterTabs size="sm" value={window} options={FLOW_WINDOWS.map((w) => ({ value: w, label: w.toUpperCase(), href: w === "24h" ? `/token/${token.address}` : `/token/${token.address}?w=${w}` }))} ariaLabel="Window" />
+        <div className="flex flex-wrap items-center gap-2"><WatchButton token={token} /><FilterTabs size="sm" value={window} options={FLOW_WINDOWS.map((w) => ({ value: w, label: w.toUpperCase(), href: w === "24h" ? `/token/${token.address}` : `/token/${token.address}?w=${w}` }))} ariaLabel="Window" /></div>
       </section>
 
       {/* Market + flow stats */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 md:grid-cols-4 [&>div]:p-3 [&_p]:text-xs">
         <MetricCard label={token.marketCap != null ? "Market cap" : "Fully diluted value"} value={formatUsd(token.marketCap ?? token.fdv)} />
         <MetricCard label="Volume · 24H" value={formatUsd(token.volume24h)} />
         <MetricCard label={`KOL buys · ${window.toUpperCase()}`} value={<span className="text-neon">{token.traderBuys}</span>} hint={`${formatUsd(token.buyUsd)} bought`} />
         <MetricCard label={`KOL sells · ${window.toUpperCase()}`} value={<span className="text-negative">{token.traderSells}</span>} hint={`${formatUsd(token.sellUsd)} sold`} />
       </section>
 
-      {/* Intelligence */}
-      <section className="grid gap-3 md:grid-cols-3">
-        <AnalystScoreCard score={token.score} window={window.toUpperCase()} />
-        <div className="card p-5">
-          <p className="label-caps">KOL sentiment · {window.toUpperCase()}</p>
-          <div className="mt-2 flex items-end gap-2">
-            <span className="text-4xl font-semibold leading-none tracking-tight tnum">{bullishPct === null ? "—" : `${bullishPct}%`}</span>
-            <span className="pb-0.5 text-sm font-medium text-secondary">{sentimentLabel}</span>
-          </div>
-          <div className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
-            {participants > 0 && (
-              <>
-                <div className="bg-neon" style={{ width: `${(token.buyers / participants) * 100}%` }} />
-                <div className="bg-white/20" style={{ width: `${(token.neutral / participants) * 100}%` }} />
-                <div className="bg-negative" style={{ width: `${(token.sellers / participants) * 100}%` }} />
-              </>
-            )}
-          </div>
-          <ul className="mt-3 space-y-1 text-sm tnum">
-            <li className="flex justify-between"><span className="text-neon">{token.buyers} buying</span></li>
-            <li className="flex justify-between"><span className="text-secondary">{token.neutral} neutral</span></li>
-            <li className="flex justify-between"><span className="text-negative">{token.sellers} selling</span></li>
-          </ul>
-          <div className="mt-4 border-t border-border pt-3">
-            <p className="label-caps">KOL net flow</p>
-            <div className="mt-1 flex justify-start">
-              <NetFlow token={token} size="lg" />
-            </div>
-          </div>
-        </div>
-        <CommunityRating targetType="token" targetId={token.address} initial={{ average: token.communityRating ?? null, count: token.ratingCount ?? 0 }} variant="card" label="Community" />
-      </section>
-
       {/* Top traders in token */}
       <TokenChart address={token.address} symbol={token.symbol} />
 
+      <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>
       <section>
         <SectionHeader title="Traders active in this token" description="Recorded buys and sells from synced wallet history. USD in/out is shown when cost basis is unavailable." />
         {topTraders.length === 0 ? (
@@ -173,6 +144,42 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
       <section>
         <DiscussionThread targetType="token" targetId={token.address} initialComments={comments} title={`Discuss $${token.symbol}`} placeholder={`What do you think about $${token.symbol}?`} />
       </section>
+      </WorkspaceTabs>
+      </div>
+      <aside className="token-insights space-y-3" aria-label="Token insights">      {/* Intelligence */}
+      <section className="space-y-3">
+        <AnalystScoreCard score={token.score} window={window.toUpperCase()} />
+        <div className="card p-5">
+          <p className="label-caps">KOL sentiment · {window.toUpperCase()}</p>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-4xl font-semibold leading-none tracking-tight tnum">{bullishPct === null ? "—" : `${bullishPct}%`}</span>
+            <span className="pb-0.5 text-sm font-medium text-secondary">{sentimentLabel}</span>
+          </div>
+          <div className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
+            {participants > 0 && (
+              <>
+                <div className="bg-neon" style={{ width: `${(token.buyers / participants) * 100}%` }} />
+                <div className="bg-white/20" style={{ width: `${(token.neutral / participants) * 100}%` }} />
+                <div className="bg-negative" style={{ width: `${(token.sellers / participants) * 100}%` }} />
+              </>
+            )}
+          </div>
+          <ul className="mt-3 space-y-1 text-sm tnum">
+            <li className="flex justify-between"><span className="text-neon">{token.buyers} buying</span></li>
+            <li className="flex justify-between"><span className="text-secondary">{token.neutral} neutral</span></li>
+            <li className="flex justify-between"><span className="text-negative">{token.sellers} selling</span></li>
+          </ul>
+          <div className="mt-4 border-t border-border pt-3">
+            <p className="label-caps">KOL net flow</p>
+            <div className="mt-1 flex justify-start">
+              <NetFlow token={token} size="lg" />
+            </div>
+          </div>
+        </div>
+        <CommunityRating targetType="token" targetId={token.address} initial={{ average: token.communityRating ?? null, count: token.ratingCount ?? 0 }} variant="card" label="Community" />
+      </section>
+
+<a href={`https://fomo.family/tokens/robinhood/${token.address}`} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border border-border p-3 text-xs text-secondary hover:text-neon">Open token on Fomo <ArrowUpRight className="h-4 w-4" /></a></aside>
     </div>
   );
 }
