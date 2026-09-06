@@ -2,6 +2,30 @@ import { test, expect, request } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type { SocialPost } from "../lib/types";
 
+test("a failed chart refresh keeps the loaded single-point chart visible and can recover", async ({ page }) => {
+  await page.clock.install();
+  const feed = await (await page.request.get("/api/trades?limit=1")).json();
+  const token = feed.trades[0].token;
+  let fail = false;
+  const timestamp = Date.now();
+  await page.route("**/chart?window=**", route => fail
+    ? route.fulfill({ status: 503, json: { error: "Temporary source outage" } })
+    : route.fulfill({ json: { window: "24h", candles: [{ t: timestamp, close: 2, volume: 100 }], activity: [], markers: [], source: "executions", priceUnit: "USD", marketUrl: null } }));
+  await page.goto(`/token/${token.address}`);
+  const chart = page.getByRole("region", { name: `${token.symbol} chart` });
+  await expect(chart.getByText(/One recorded price point/)).toBeVisible();
+  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+  fail = true;
+  await page.clock.runFor(20_000);
+  await expect(chart.getByRole("button", { name: "Retry refresh" })).toBeVisible();
+  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+  await expect(chart.getByText("The chart couldn’t load.")).toHaveCount(0);
+  fail = false;
+  await chart.getByRole("button", { name: "Retry refresh" }).click();
+  await expect(chart.getByRole("button", { name: "Retry refresh" })).toHaveCount(0);
+  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+});
+
 test("following persists, custom alerts deduplicate, chart markers open real trade details", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", e => errors.push(e.message));

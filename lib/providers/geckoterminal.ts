@@ -70,14 +70,14 @@ export async function fetchGeckoTokens(addresses: string[]): Promise<Map<string,
   const valid = [...new Set(addresses.map((a) => a.toLowerCase()).filter((a) => /^0x[a-f0-9]{40}$/.test(a)))];
   const missing = valid.filter((address) => {
     const hit = tokenCache.get(`${chain}:${address}`);
-    if (!hit || Date.now() - hit.at > 15 * 60_000) return true;
+    if (!hit || Date.now() - hit.at > (hit.token?.poolAddress ? 5 * 60_000 : 30_000)) return true;
     if (hit.token) out.set(address, hit.token);
     return false;
   });
   for (let i = 0; i < missing.length; i += 30) {
     const batch = missing.slice(i, i + 30).sort();
     let raw: unknown;
-    try { raw = await geckoJson(`/networks/${encodeURIComponent(chain)}/tokens/multi/${batch.join(",")}?include=top_pools`); }
+    try { raw = await geckoJson(`/networks/${encodeURIComponent(chain)}/tokens/multi/${batch.join(",")}?include=top_pools`, batch.length === 1 ? 30_000 : 5 * 60_000); }
     catch (error) { if (out.size) break; throw error; }
     const parsed = z.object({ data: z.array(z.unknown()), included: z.array(z.unknown()).optional() }).safeParse(raw);
     if (!parsed.success) continue;
@@ -115,7 +115,7 @@ export async function fetchTokenCandles(address: string, window: "1h" | "6h" | "
   const period = window === "7d" ? "hour" : "minute";
   const aggregate = window === "1h" ? 1 : window === "6h" ? 5 : window === "24h" ? 15 : 1;
   const path = `/networks/${encodeURIComponent(env().MARKET_DATA_CHAIN)}/pools/${encodeURIComponent(token.poolAddress)}/ohlcv/${period}?aggregate=${aggregate}&limit=200&currency=usd&token=${encodeURIComponent(address.toLowerCase())}`;
-  const raw = await geckoJson(path, 60_000);
+  const raw = await geckoJson(path, 15_000);
   const parsed = z.object({ data: z.object({ attributes: z.object({ ohlcv_list: z.array(z.tuple([z.number(), z.number(), z.number(), z.number(), z.number(), z.number()])) }) }) }).safeParse(raw);
   const hours = { "1h": 1, "6h": 6, "24h": 24, "7d": 168 }[window];
   const from = Date.now() - hours * 3_600_000;

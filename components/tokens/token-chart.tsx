@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, ReferenceDot, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowUpRightIcon } from "@phosphor-icons/react";
@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useTracking } from "@/lib/client/tracking-store";
 import { useTradeStream } from "@/components/live/stream-provider";
 import { mergeLiveTrades } from "@/lib/client/live-trades";
+import { chartTimeDomain, liveExecutionSeries } from "@/lib/chart-series";
 import { executionPrice, groupMarkers } from "@/lib/chart-markers";
 import { ChartMarker } from "@/components/tracking/chart-marker";
 import { TraderAvatar } from "@/components/common/avatar";
@@ -32,16 +33,27 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
   const gradient = useId().replace(/:/g, "");
   const query = useQuery({
     queryKey: ["token-chart", address, window],
-    queryFn: ({ signal }) => apiGet<TokenChartData>(`/api/tokens/${encodeURIComponent(address)}/chart?window=${window}`, signal),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    queryFn: ({ signal }) => apiGet<TokenChartData>(`/api/tokens/${encodeURIComponent(address)}/chart?window=${window}`, AbortSignal.any([signal, AbortSignal.timeout(45_000)])),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: 1,
+    refetchOnWindowFocus: true,
   });
   const data = query.data;
   const executions = data?.source === "executions";
   const unit = data?.priceUnit ?? "USD";
   const priceLabel = (value: number | null | undefined) => unit === "USD" ? formatPrice(value) : formatPrice(value).replace(/^\$/, "");
   const view = mode;
-  const candles = data?.candles ?? [];
+  const tokenLive = stream.trades.filter(t => t.token.address.toLowerCase() === address.toLowerCase());
+  const newestLive = tokenLive[0]?.timestamp;
+  const lastRefresh = useRef(0);
+  const refetch = query.refetch;
+  useEffect(() => {
+    if (!newestLive) return;
+    const timer = setTimeout(() => { lastRefresh.current = Date.now(); void refetch(); }, Math.max(0, 5000 - (Date.now() - lastRefresh.current)));
+    return () => clearTimeout(timer);
+  }, [newestLive, refetch]);
+  const candles = executions ? liveExecutionSeries(data?.candles ?? [], tokenLive, query.dataUpdatedAt - { "1h": 3_600_000, "6h": 21_600_000, "24h": 86_400_000, "7d": 604_800_000 }[window]) : data?.candles ?? [];
   const activity = data?.activity ?? [];
   const last = candles.at(-1);
   const chartEnd = candles.at(-1)?.t ?? 0;
@@ -59,7 +71,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
   const time = (value: number) => new Date(value).toLocaleString(undefined, window === "7d" ? { month: "short", day: "numeric" } : { hour: "2-digit", minute: "2-digit" });
   const hasChart = view === "price" ? candles.length > 0 : activity.length > 0;
   const grid = <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 5" />;
-  const xAxis = <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} tickFormatter={time} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={45} />;
+  const xAxis = <XAxis dataKey="t" type="number" domain={view === "price" ? chartTimeDomain(candles) : ["dataMin", "dataMax"]} tickFormatter={time} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={45} />;
 
   return (
     <section className="card min-w-0 overflow-hidden p-4 md:p-6" aria-label={`${symbol} chart`}>
@@ -78,7 +90,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
       </div>
       {view === "price" && <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-secondary"><span>Trade markers</span><label className="flex items-center gap-2"><span className="sr-only">Marker traders</span><select aria-label="Marker traders" className="rounded border border-border bg-surface p-2" value={markerScope} onChange={e => setMarkerScope(e.target.value)}><option value="all">All traders</option><option value="following">Following</option></select></label><select aria-label="Marker action" className="rounded border border-border bg-surface p-2" value={markerSide} onChange={e => setMarkerSide(e.target.value)}><option value="all">Buys & sells</option><option value="BUY">Buys</option><option value="SELL">Sells</option></select><select aria-label="Marker minimum value" className="rounded border border-border bg-surface p-2" value={minimum} onChange={e => setMinimum(Number(e.target.value))}><option value={0}>Any size</option><option value={1000}>$1,000+</option><option value={5000}>$5,000+</option></select></div>}
       <div className="mt-4 h-[300px] min-w-0 md:h-[380px]" aria-busy={query.isFetching}>
-        {query.isLoading ? <Skeleton className="h-full w-full" /> : query.isError ? (
+        {query.isLoading ? <Skeleton className="h-full w-full" /> : query.isError && !data ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-sm text-secondary"><p>The chart couldnâ€™t load.</p><Button size="sm" onClick={() => void query.refetch()}>Retry chart</Button></div>
         ) : !hasChart ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-secondary">
@@ -115,12 +127,14 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
           </ResponsiveContainer>
         )}
       </div>
-      {view === "price" && <div className="mt-3 border-t border-border pt-3"><p className="text-xs text-secondary">Trade timeline ? {markerTrades.length} recent swaps ? <span className="text-neon">Buy</span> / <span className="text-negative">Sell</span></p>{timeline.length ? <div className="relative mx-4 my-3 h-20 border-b border-border" aria-label="Trade timeline">{timeline.map(g => <button key={g.id} title={`${g.trade.trader.name} ${g.trade.side}`} aria-label={`Timeline ${g.trade.side} ${g.trade.trader.name}, ${g.trades.length} trades`} onClick={() => setSelected(g.trades)} className={`absolute flex h-8 min-w-8 -translate-x-1/2 items-center justify-center rounded-full border bg-background text-[10px] ${g.trade.side === "BUY" ? "top-0 border-neon text-neon" : "top-10 border-negative text-negative"}`} style={{ left: `${(g.t - timelineStart) / Math.max(1, timelineEnd - timelineStart) * 100}%` }}><TraderAvatar name={g.trade.trader.name} id={g.trade.trader.id} avatar={g.trade.trader.avatar} size="xs" /><span>{g.trades.length > 1 ? g.trades.length : g.trade.side === "BUY" ? "B" : "S"}</span></button>)}</div> : <p className="py-3 text-xs text-muted">No matching trades in this window.</p>}<p className="text-[11px] text-muted">Timeline shows timestamps, not prices. Price-chart markers require a known USD execution price and a USD chart. Nearby trades are grouped; select one for details. Up to 200 stored swaps plus incoming trades.</p></div>}
-      {selected.length > 0 && <div className="mt-3 rounded-lg border border-border bg-elevated p-3" aria-label="Selected trades"><div className="flex justify-between text-xs"><span>{selected.length} selected trade{selected.length > 1 ? "s" : ""}</span><button onClick={() => setSelected([])}>Close details</button></div><ul className="mt-2 max-h-48 space-y-3 overflow-y-auto">{selected.map(t => <li key={t.id} className="flex flex-wrap items-center gap-2 text-xs"><TraderAvatar id={t.trader.id} name={t.trader.name} avatar={t.trader.avatar} size="xs" /><Link className="font-medium hover:text-neon" href={`/trader/${t.trader.id}`}>{t.trader.name}</Link><span className={t.side === "BUY" ? "text-neon" : "text-negative"}>{t.side}</span><span>{formatUsd(t.amountUsd)}</span><span className="text-muted">{executionPrice(t) == null ? "Execution price unavailable" : `${formatPrice(executionPrice(t))} USD`} ? {new Date(t.timestamp).toLocaleString()}</span></li>)}</ul></div>}
+      {view === "price" && <div className="mt-3 border-t border-border pt-3"><p className="text-xs text-secondary">Trade timeline · {markerTrades.length} recent swaps · <span className="text-neon">Buy</span> / <span className="text-negative">Sell</span></p>{timeline.length ? <div className="relative mx-4 my-3 h-20 border-b border-border" aria-label="Trade timeline">{timeline.map(g => <button key={g.id} title={`${g.trade.trader.name} ${g.trade.side}`} aria-label={`Timeline ${g.trade.side} ${g.trade.trader.name}, ${g.trades.length} trades`} onClick={() => setSelected(g.trades)} className={`absolute flex h-8 min-w-8 -translate-x-1/2 items-center justify-center rounded-full border bg-background text-[10px] ${g.trade.side === "BUY" ? "top-0 border-neon text-neon" : "top-10 border-negative text-negative"}`} style={{ left: `${(g.t - timelineStart) / Math.max(1, timelineEnd - timelineStart) * 100}%` }}><TraderAvatar name={g.trade.trader.name} id={g.trade.trader.id} avatar={g.trade.trader.avatar} size="xs" /><span>{g.trades.length > 1 ? g.trades.length : g.trade.side === "BUY" ? "B" : "S"}</span></button>)}</div> : <p className="py-3 text-xs text-muted">No matching trades in this window.</p>}<p className="text-[11px] text-muted">Timeline shows timestamps, not prices. Price-chart markers require a known USD execution price and a USD chart. Nearby trades are grouped; select one for details. Up to 200 stored swaps plus incoming trades.</p></div>}
+      {selected.length > 0 && <div className="mt-3 rounded-lg border border-border bg-elevated p-3" aria-label="Selected trades"><div className="flex justify-between text-xs"><span>{selected.length} selected trade{selected.length > 1 ? "s" : ""}</span><button onClick={() => setSelected([])}>Close details</button></div><ul className="mt-2 max-h-48 space-y-3 overflow-y-auto">{selected.map(t => <li key={t.id} className="flex flex-wrap items-center gap-2 text-xs"><TraderAvatar id={t.trader.id} name={t.trader.name} avatar={t.trader.avatar} size="xs" /><Link className="font-medium hover:text-neon" href={`/trader/${t.trader.id}`}>{t.trader.name}</Link><span className={t.side === "BUY" ? "text-neon" : "text-negative"}>{t.side}</span><span>{formatUsd(t.amountUsd)}</span><span className="text-muted">{executionPrice(t) == null ? "Execution price unavailable" : `${formatPrice(executionPrice(t))} USD`} · {new Date(t.timestamp).toLocaleString()}</span></li>)}</ul></div>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-[11px] leading-relaxed text-muted">
         <p>{view === "price" ? executions ? "Prices paid in recorded swaps, up to the latest 1,000 executions. Partial wallet coverage; not a continuous market quote or OHLC history." : `Recorded prices in ${unit}. Gaps may reflect periods without trading.` : "USD volume from tracked wallets only. This is activity, not a price chart."}</p>
         {data?.marketUrl && <a href={data.marketUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-secondary hover:text-neon">{data.source === "pons" ? "Pons launchpad" : "GeckoTerminal"} <ArrowUpRightIcon /></a>}
       </div>
+      {query.isError && data && <p role="status" className="mt-3 text-xs text-warning">Refresh failed. Showing the last loaded chart. <button className="underline" onClick={() => void query.refetch()}>Retry refresh</button></p>}
+      {candles.length === 1 && view === "price" && <p className="mt-3 text-xs text-secondary">One recorded price point is available. More history will appear as the source reports trades.</p>}
       {data?.error && <p role="status" className="mt-3 text-xs text-warning">{data.error}</p>}
       {data?.fdv != null && <p className="mt-3 text-xs text-muted">Fully diluted valuation <span className="text-secondary">{formatUsd(data.fdv)}</span> <span className="mx-2">Â·</span> Liquidity <span className="text-secondary">{formatUsd(data.liquidityUsd)}</span></p>}
     </section>

@@ -9,6 +9,7 @@ import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/service
 import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
 import { normalizeDefinedImport } from "../lib/providers/defined-import";
 import { executionPriceSamples } from "../lib/chart-executions";
+import { chartTimeDomain, liveExecutionSeries } from "../lib/chart-series";
 import { analyzePerformance } from "../lib/performance";
 import { groupMarkers, executionPrice } from "../lib/chart-markers";
 import { emptyTracking, evaluateAlerts, matchesAlert, parseTracking, type AlertRule } from "../lib/client/tracking-model";
@@ -20,6 +21,15 @@ const trackingTrade = (overrides: Partial<AnalystTrade> = {}): AnalystTrade => (
   trader: { id: `0x${"a".repeat(40)}`, wallet: `0x${"a".repeat(40)}`, name: "Fixture", handle: "fixture" },
   token: { address: `0x${"b".repeat(40)}`, symbol: "FIX", name: "Fixture" }, side: "BUY", amountUsd: 100, tokenAmount: 10, price: 10,
   timestamp: new Date(1_000_000).toISOString(), txHash: `0x${"c".repeat(64)}`, ...overrides,
+});
+test("single-point charts have a visible time range and live series append only priced new executions", () => {
+  const candles = [{ t: 900_000, close: 8, volume: 20 }];
+  assert.deepEqual(chartTimeDomain(candles), [840_000, 960_000]);
+  const result = liveExecutionSeries(candles, [trackingTrade(), trackingTrade({ timestamp: new Date(800_000).toISOString() }), trackingTrade({ price: null, tokenAmount: null })], 700_000);
+  assert.equal(result.length, 2);
+  assert.equal(result[1].close, 10);
+  assert.equal(result[1].t, 1_000_000);
+  assert.equal(result[1].open, undefined);
 });
 test("alert rules filter real events, ignore replay and merge matching rules into one notice", () => {
   const t = trackingTrade();
