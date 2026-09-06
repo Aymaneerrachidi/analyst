@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ANALYST
 
-## Getting Started
+**See what the best traders on Robinhood are buying.**
 
-First, run the development server:
+ANALYST is a public social-intelligence layer for Robinhood Chain: top traders, live tracked trades, token accumulation, an explainable Analyst Score, and a lightweight community (comments, ratings, posts) that needs no account.
+
+It is an independent analytics and community platform. It is not affiliated with or endorsed by Robinhood. Nothing here is financial advice.
+
+## Quick start
 
 ```bash
+npm install
+cp .env.example .env.local   # defaults to the live KOLHOOD data source
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. The first request runs migrations against an embedded Postgres (PGlite in `./.data/pglite`) and performs the initial data sync, so it takes ~10–15 s. Everything after that is fast.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No external database, no API keys, no accounts.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data sources
 
-## Learn More
+Set `DATA_PROVIDER` in `.env.local`:
 
-To learn more about Next.js, take a look at the following resources:
+| Value | What it is |
+| --- | --- |
+| `kolhood` (default) | Live data from the public JSON routes that [kolhood.io](https://kolhood.io) serves to its own frontend: `/api/trades`, `/api/wallets/list`, `/api/wallets/:address/profile`, `/api/leaderboard?period=`, `/api/tokens/trending`. Only these observed, publicly reachable routes are used. |
+| `mock` | Deterministic synthetic data (20 traders, 30 tokens, ~800 trades, continuous synthetic live trades) for offline development. The UI shows a **MOCK DATA** badge; ids are prefixed `mock-`. It can never be mistaken for live data. |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+KOLHOOD supplies wallet profiles, rankings and recent trades. Dexscreener enriches live token prices and market metrics; GeckoTerminal supplies token logos and OHLCV price history on Robinhood Chain. Every token page includes selectable price and tracked-flow charts. Pons launchpad chart history is a second price source when GeckoTerminal lacks candles. Its original quote currency is retained, so current exchange rates never masquerade as historical USD prices. Price is the default chart view; recorded wallet flow is a separate selectable view. Unverified market caps stay unavailable; FDV is labeled separately. Realized PnL is computed with an average-cost model only when token amounts exist; otherwise the UI shows USD in/out.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Token logos and trader avatars use source images where available, downloaded and cached locally from verified source URLs; absent or broken images are omitted. Profile history is imported and deduplicated against the global feed; holdings alone are not presented as zero-trade activity. Rankings refresh every 15 minutes, and incremental sync updates derived activity statistics.
 
-## Deploy on Vercel
+The provider contract lives in `lib/providers/types.ts`. Adding a new source means implementing `DataProvider` and registering it in `lib/providers/index.ts`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+provider (mock | kolhood) → sync (lib/services/sync.ts) → Postgres (Drizzle) → services → RSC pages + /api → client polling
+```
+
+- **Sync**: `POST /api/internal/sync?kind=full|trades` with `Authorization: Bearer $INTERNAL_SYNC_SECRET` for schedulers. Reads also trigger a throttled sync (every 8 s at most) so the app stays live without a cron.
+- **Database**: Drizzle `pg-core` schema in `lib/db/schema.ts`. Uses `DATABASE_URL` (Postgres/Supabase) when set, otherwise embedded PGlite. Migrations in `drizzle/` run automatically at boot. `npm run db:generate` after schema changes.
+- **Analyst Score** (`lib/services/score.ts`): 0–100 from five stored components — trader quality 30%, net accumulation 25%, breadth 20%, conviction 15%, momentum 10%. Explained in a popover on every score. Community ratings (1–10) are a separate, clearly labelled metric.
+- **Guests**: anonymous HttpOnly cookie; only a salted SHA-256 hash is stored. IPs are hashed, never stored raw.
+- **Anti-spam**: per-guest DB-backed sliding windows, per-IP in-memory limiter, cooldown, duplicate detection, honeypot field, URL cap, content policy, reports. Thresholds are env-configurable.
+- **Live**: clients poll `/api/trades?after=<seq>` every 5 s; new rows insert at the top. The indicator shows **LIVE** only when the last successful sync is under 60 s old, otherwise **DELAYED**.
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run check` | typecheck + lint + build |
+| `npm test` | Isolated database regression tests for sync, PnL and atomic voting |
+| `npm run test:e2e` | Browser checks on port 3120 using mock data and `.data/playwright`; run build first |
+| `npm run sync` | Boot DB, run a full sync, print a summary (smoke test) |
+| `npm run db:generate` | Generate a Drizzle migration from the schema |
+| `npm run db:migrate` | Apply migrations to `DATABASE_URL` (Postgres) |
+
+## Deploying
+
+Read the [production launch checklist](docs/production-launch.md) before opening the site publicly. Use an always-on Node service, managed PostgreSQL, and persistent storage for the current filesystem caches. GitHub Pages cannot run this application.
+
+Set `DATABASE_URL`, `INTERNAL_SYNC_SECRET`, `GUEST_HASH_SALT`, and the HTTPS `NEXT_PUBLIC_APP_URL`, keeping live providers enabled. Use a scheduler capable of authenticated **POST** requests to `/api/internal/sync?kind=trades` every minute and `?kind=full` every 15 minutes. Shared ingestion locks, production configuration enforcement, moderation tooling, monitoring and staging/load verification remain launch work.
+
+## Routes
+
+`/` home · `/live` live trades · `/traders` leaderboard · `/trader/[wallet]` profile · `/tokens` token monitor · `/token/[address]` token page · `/social` feed · `/social/[id]` thread.
+
+API: `GET /api/trades`, `/api/traders`, `/api/traders/:id`, `/api/traders/:id/trades`, `/api/tokens`, `/api/tokens/:address`, `/api/tokens/:address/trades`, `/api/search`, `/api/social`, `/api/comments`, `/api/ratings`, `/api/freshness`, `/api/me`; `POST /api/social`, `/api/comments`, `/api/votes`, `/api/ratings`, `/api/reports`, `/api/me`; `DELETE /api/comments/:id`, `/api/social/:id`.
+
+Source images are cached in `.data/source-images`, market responses in `.data/market-cache`, and contract-matched launchpad metadata in `.data/launchpad-cache`. Pons page metadata supplements logos and spot valuations missing from indexers. Fully diluted valuation is distinct from verified circulating market cap. Token browsing is paginated so records beyond the first 100 remain reachable. Live reads exclude seeded community posts and ratings.

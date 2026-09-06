@@ -1,0 +1,21 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { jsonError, noStore, parseJson } from "@/lib/api";
+import { getGuest, getOrCreateGuest, updateDisplayName, validateDisplayName } from "@/lib/social/guest";
+
+export async function GET() {
+  const guest = await getGuest();
+  return NextResponse.json({ guest: guest ? { id: guest.id, displayName: guest.displayName } : null }, noStore);
+}
+
+const schema = z.object({ displayName: z.string().max(64) });
+
+export async function POST(req: Request) {
+  const parsed = await parseJson(req, schema);
+  if (!parsed.ok) return parsed.response;
+  const valid = validateDisplayName(parsed.data.displayName);
+  if (!valid.ok) return jsonError(422, valid.error);
+  const guest = await getOrCreateGuest();
+  await updateDisplayName(guest.id, valid.name);
+  return NextResponse.json({ guest: { id: guest.id, displayName: valid.name } }, noStore);
+}
