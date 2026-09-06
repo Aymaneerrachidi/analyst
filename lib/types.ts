@@ -130,7 +130,7 @@ export interface TokenChartData {
   window: FlowWindow;
   candles: TokenCandle[];
   activity: { t: number; buyUsd: number; sellUsd: number; buys: number; sells: number }[];
-  source: "geckoterminal" | "pons" | "mock" | "unavailable";
+  source: "geckoterminal" | "pons" | "executions" | "mock" | "unavailable";
   priceUnit?: string;
   marketUrl: string | null;
   error?: string;

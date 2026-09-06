@@ -8,6 +8,19 @@ import * as schema from "../lib/db/schema";
 import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/services/pnl";
 import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
 import { normalizeDefinedImport } from "../lib/providers/defined-import";
+import { executionPriceSamples } from "../lib/chart-executions";
+
+test("execution chart fallback uses only historical prices or exact trade quantities without fabricated OHLC", () => {
+  const t = new Date("2026-09-06T12:00:00Z");
+  const samples = executionPriceSamples([
+    { t, price: 0.5, usd: 100 },
+    { t, price: null, usd: 60, tokenAmount: 100 },
+    { t, price: null, usd: 50 },
+    { t, price: Infinity, usd: 30 },
+  ]);
+  assert.deepEqual(samples.map((p) => p.close), [0.5, 0.6]);
+  assert.ok(samples.every((p) => p.open === undefined && p.high === undefined && p.low === undefined));
+});
 
 test("Defined import validates chain, resolves quote token and deduplicates logs before grouping transactions", () => {
   const wallet = `0x${"b".repeat(40)}`;

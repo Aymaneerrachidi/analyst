@@ -23,6 +23,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
     refetchInterval: 60_000,
   });
   const data = query.data;
+  const executions = data?.source === "executions";
   const unit = data?.priceUnit ?? "USD";
   const priceLabel = (value: number | null | undefined) => unit === "USD" ? formatPrice(value) : formatPrice(value).replace(/^\$/, "");
   const view = mode;
@@ -38,7 +39,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
     <section className="card min-w-0 overflow-hidden p-4 md:p-6" aria-label={`${symbol} chart`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-medium text-secondary">{view === "price" ? `${symbol} price` : "Tracked buy and sell volume"}</h2>
+          <h2 className="text-sm font-medium text-secondary">{view === "price" ? `${symbol} ${executions ? "execution prices" : "price"}` : "Tracked buy and sell volume"}</h2>
           <p className="mt-2 font-mono text-2xl tracking-[-0.04em] text-primary">{view === "price" ? priceLabel(last?.close) : formatUsd(data ? activity.reduce((sum, p) => sum + p.buyUsd + p.sellUsd, 0) : null)}<span className="ml-2 font-sans text-xs tracking-normal text-muted">{view === "price" ? unit : "USD"}</span></p>
         </div>
         <FilterTabs size="sm" value={window} onChange={setWindow} options={FLOW_WINDOWS.map((value) => ({ value, label: value.toUpperCase() }))} ariaLabel="Token chart period" />
@@ -47,6 +48,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
         <FilterTabs size="sm" value={view} onChange={setMode} options={[{ value: "price", label: "Price" }, { value: "flow", label: "Tracked flow" }]} ariaLabel="Chart view" />
         {view === "flow" && <p className="inline-flex gap-4 text-[11px]"><span className="text-neon">Buys</span><span className="text-negative">Sells</span></p>}
         {data?.source === "mock" && <span className="text-[11px] text-warning">Synthetic demo data</span>}
+        {executions && view === "price" && <span className="text-[11px] text-secondary">Recorded trades · USD</span>}
       </div>
       <div className="mt-4 h-[300px] min-w-0 md:h-[380px]" aria-busy={query.isFetching}>
         {query.isLoading ? <Skeleton className="h-full w-full" /> : query.isError ? (
@@ -65,9 +67,9 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
               <YAxis orientation="right" width={78} domain={["auto", "auto"]} tickFormatter={(n) => priceLabel(n)} tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={({ active, payload }) => {
                 const point = payload?.[0]?.payload as TokenChartData["candles"][number] | undefined;
-                return active && point ? <div className="rounded-xl border border-border bg-elevated p-3 text-xs shadow-lg"><p className="text-muted">{new Date(point.t).toLocaleString()}</p><p className="mt-1 font-mono text-neon">{priceLabel(point.close)} {unit}</p>{data?.source !== "pons" && <p className="mt-2 text-secondary">High {priceLabel(point.high)} · Low {priceLabel(point.low)}</p>}<p className="mt-1 text-muted">Volume {unit === "USD" ? formatUsd(point.volume) : `${point.volume.toLocaleString()} ${unit}`}</p></div> : null;
+                return active && point ? <div className="rounded-xl border border-border bg-elevated p-3 text-xs shadow-lg"><p className="text-muted">{new Date(point.t).toLocaleString()}</p><p className="mt-1 font-mono text-neon">{priceLabel(point.close)} {unit}</p>{point.high != null && point.low != null && <p className="mt-2 text-secondary">High {priceLabel(point.high)} · Low {priceLabel(point.low)}</p>}<p className="mt-1 text-muted">{executions ? "Trade value" : "Volume"} {unit === "USD" ? formatUsd(point.volume) : `${point.volume.toLocaleString()} ${unit}`}</p></div> : null;
               }} />
-              <Area type="linear" dataKey="close" stroke="#ccff00" strokeWidth={2} fill={`url(#${gradient})`} isAnimationActive={false} dot={candles.length === 1 ? { r: 4, fill: "#ccff00" } : false} />
+              <Area type="linear" dataKey="close" stroke="#ccff00" strokeWidth={2} fill={executions ? "transparent" : `url(#${gradient})`} isAnimationActive={false} dot={executions || candles.length === 1 ? { r: 2, fill: "#ccff00", strokeWidth: 0 } : false} />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
@@ -86,7 +88,7 @@ export function TokenChart({ address, symbol }: { address: string; symbol: strin
         )}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-[11px] leading-relaxed text-muted">
-        <p>{view === "price" ? `Recorded prices in ${unit}. Gaps may reflect periods without trading.` : "USD volume from tracked wallets only. This is activity, not a price chart."}</p>
+        <p>{view === "price" ? executions ? "Prices paid in recorded swaps, up to the latest 1,000 executions. Partial wallet coverage; not a continuous market quote or OHLC history." : `Recorded prices in ${unit}. Gaps may reflect periods without trading.` : "USD volume from tracked wallets only. This is activity, not a price chart."}</p>
         {data?.marketUrl && <a href={data.marketUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-secondary hover:text-neon">{data.source === "pons" ? "Pons launchpad" : "GeckoTerminal"} <ArrowUpRightIcon /></a>}
       </div>
       {data?.error && <p role="status" className="mt-3 text-xs text-warning">{data.error}</p>}

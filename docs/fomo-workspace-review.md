@@ -38,3 +38,5 @@ node --conditions=react-server --import tsx scripts/import-defined.ts wallets.js
 Capture files must contain the public records in the validated envelope shape in `lib/providers/defined-import.ts`. They must never contain authentication headers, cookies or API keys. Capture files and production environment files remain outside version control.
 
 The existing public KOLHOOD Socket.IO feed continues delivering `trade:new` events directly. The Defined import is a dated snapshot, not a second live stream. Continuous Defined/Codex updates require the project's own data-service account/key and an authenticated ingestion/subscription integration; a Fomo browser login does not provide that API access. No website-issued API token is reused in production.
+
+When market providers have no historical chart, tokens with recorded USD execution prices show a labeled execution-price series. Points come only from historical trade prices or historical USD value divided by actual token quantity. No current-price substitution, invented OHLC, or fabricated candles are used. Tokens without either market history or priced trades retain an explicit unavailable state.
