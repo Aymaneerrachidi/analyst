@@ -1,0 +1,13 @@
+.git
+.data
+.agents
+.next
+.playwright-mcp
+.vercel
+.env*
+node_modules
+test-results
+playwright-report
+coverage
+*.tsbuildinfo
+skills-lock.json

@@ -4,6 +4,10 @@ import { jsonError, noStore, oneOf, searchParam } from "@/lib/api";
 import { env } from "@/lib/env";
 import { runSync } from "@/lib/services/sync";
 import { seedSocialIfEmpty } from "@/lib/db/seed-social";
+import { getDb, schema } from "@/lib/db";
+import { sql } from "drizzle-orm";
+
+export const maxDuration = 300;
 
 function authorized(req: Request): boolean {
   const secret = env().INTERNAL_SYNC_SECRET;
@@ -23,8 +27,11 @@ export async function POST(req: Request) {
   try {
     const result = await runSync(kind);
     await seedSocialIfEmpty();
+    const db = await getDb();
+    await db.delete(schema.appMeta).where(sql`${schema.appMeta.key} like 'cache:%' and ${schema.appMeta.updatedAt} < now() - interval '7 days'`);
     return NextResponse.json({ ok: true, result }, noStore);
   } catch (err) {
-    return jsonError(502, err instanceof Error ? err.message : "Sync failed.");
+    console.error("[scheduled-sync]", err instanceof Error ? err.message : "Sync failed");
+    return jsonError(502, "Sync failed. Check server logs.");
   }
 }

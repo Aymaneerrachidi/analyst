@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { get, put } from "@vercel/blob";
 
 const ROOT = path.join(process.cwd(), ".data", "source-images");
 const ALLOWED = new Set(["www.ponsfamily.com", "ponsfamily.com", "kolhood.io", "www.kolhood.io", "assets.geckoterminal.com", "pbs.twimg.com", "cdn.dexscreener.com", "dd.dexscreener.com", "assets.coingecko.com", "coin-images.coingecko.com", "unavatar.io"]);
@@ -16,8 +17,13 @@ export async function sourceImage(source: string): Promise<{ bytes: Buffer; type
   const key = createHash("sha256").update(source).digest("hex");
   const file = path.join(ROOT, key);
   try {
+    if (process.env.VERCEL) {
+      const stored = await get(`source-images/${key}`, { access: "private" });
+      if (stored?.statusCode === 200) return { bytes: Buffer.from(await new Response(stored.stream).arrayBuffer()), type: stored.blob.contentType };
+    } else {
     const [bytes, type] = await Promise.all([readFile(file), readFile(`${file}.type`, "utf8")]);
     return { bytes, type };
+    }
   } catch { /* Not downloaded yet. */ }
   if ((failures.get(key) ?? 0) > Date.now()) throw new Error("Source image unavailable");
   const active = pending.get(key);
@@ -50,9 +56,15 @@ export async function sourceImage(source: string): Promise<{ bytes: Buffer; type
       chunks.push(value);
     }
     const bytes = Buffer.concat(chunks);
-    await mkdir(ROOT, { recursive: true });
-    await writeFile(file, bytes);
-    await writeFile(`${file}.type`, type);
+    try {
+      if (process.env.VERCEL) {
+        await put(`source-images/${key}`, bytes, { access: "private", contentType: type, addRandomSuffix: false, allowOverwrite: true });
+      } else {
+        await mkdir(ROOT, { recursive: true });
+        await writeFile(file, bytes);
+        await writeFile(`${file}.type`, type);
+      }
+    } catch { console.error("[image:cache] Unable to persist source image"); }
     return { bytes, type };
   })().catch((error) => { failures.set(key, Date.now() + 5 * 60_000); throw error; });
   pending.set(key, work);

@@ -33,6 +33,12 @@ export function env(): Env {
     throw new Error(`Invalid environment: ${parsed.error.message}`);
   }
   const value = parsed.data;
+  if (process.env.VERCEL) {
+    if (!value.DATABASE_URL) throw new Error("Vercel requires a managed DATABASE_URL");
+    if (value.DATA_PROVIDER !== "kolhood" || value.MARKET_DATA_PROVIDER !== "dexscreener") throw new Error("Vercel requires live data providers");
+    if (value.INTERNAL_SYNC_SECRET.length < 32 || value.GUEST_HASH_SALT.length < 32) throw new Error("Production secrets must contain at least 32 characters");
+    if (!value.NEXT_PUBLIC_APP_URL.startsWith("https://")) throw new Error("Production app URL must use HTTPS");
+  }
   if (value.DATABASE_URL === "") value.DATABASE_URL = undefined;
   if (value.DIRECT_URL === "") value.DIRECT_URL = undefined;
   if (value.UPSTREAM_API_KEY === "") value.UPSTREAM_API_KEY = undefined;

@@ -44,7 +44,7 @@ export async function listPosts(opts: ListPostsOptions): Promise<SocialPost[]> {
   const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
   const where: SQL[] = [isNull(posts.deletedAt)];
   if (!isMockProvider()) where.push(eq(guests.isSeed, false));
-  if (opts.before) where.push(sql`${posts.createdAt} < ${new Date(opts.before)}`);
+  if (opts.before) where.push(sql`${posts.createdAt} < ${new Date(opts.before).toISOString()}::timestamptz`);
   const order =
     opts.sort === "top"
       ? [desc(sql`(${posts.upvotes} - ${posts.downvotes}) * 1.0 / power(extract(epoch from now() - ${posts.createdAt}) / 3600 + 2, 1.3)`), desc(posts.createdAt)]

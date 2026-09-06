@@ -2,6 +2,8 @@
 
 **See what the best traders on Robinhood are buying.**
 
+[Open ANALYST](https://analyst-orpin.vercel.app) · [Vercel operations](docs/vercel-operations.md)
+
 ANALYST is a public social-intelligence layer for Robinhood Chain: top traders, live tracked trades, token accumulation, an explainable Analyst Score, and a lightweight community (comments, ratings, posts) that needs no account.
 
 It is an independent analytics and community platform. It is not affiliated with or endorsed by Robinhood. Nothing here is financial advice.
@@ -63,9 +65,9 @@ provider (mock | kolhood) → sync (lib/services/sync.ts) → Postgres (Drizzle)
 
 ## Deploying
 
-Read the [production launch checklist](docs/production-launch.md) before opening the site publicly. Use an always-on Node service, managed PostgreSQL, and persistent storage for the current filesystem caches. GitHub Pages cannot run this application.
+The current deployment runs on Vercel Hobby with Neon PostgreSQL, private Vercel Blob images, PostgreSQL metadata caches, and an external QStash scheduler. See [Vercel operations](docs/vercel-operations.md) for configuration and limits. GitHub Pages cannot run this application.
 
-Set `DATABASE_URL`, `INTERNAL_SYNC_SECRET`, `GUEST_HASH_SALT`, and the HTTPS `NEXT_PUBLIC_APP_URL`, keeping live providers enabled. Use a scheduler capable of authenticated **POST** requests to `/api/internal/sync?kind=trades` every minute and `?kind=full` every 15 minutes. Shared ingestion locks, production configuration enforcement, moderation tooling, monitoring and staging/load verification remain launch work.
+Set `DATABASE_URL`, `INTERNAL_SYNC_SECRET`, `GUEST_HASH_SALT`, and the HTTPS `NEXT_PUBLIC_APP_URL`, keeping live providers enabled. Vercel also needs the Blob store integration. QStash sends authenticated **POST** requests for trades every two minutes and full refreshes every 15 minutes. Shared ingestion leases and Vercel configuration checks are implemented. Moderation tooling, monitoring and staging/load verification remain [launch work](docs/production-launch.md).
 
 ## Routes
 

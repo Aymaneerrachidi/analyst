@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/lib/db";
@@ -370,6 +371,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
     }
     return quotes;
   }).catch(() => new Map());
+  if (process.env.VERCEL) after(async () => { await enrichment; });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const quotes = await Promise.race([enrichment, new Promise<Map<string, import("@/lib/providers/market-data").MarketQuote>>((resolve) => { timer = setTimeout(() => resolve(new Map()), 4000); })]).finally(() => { if (timer) clearTimeout(timer); });
   return rows.map(({ token, snap, buyer }) => {

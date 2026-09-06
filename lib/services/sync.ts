@@ -1,4 +1,6 @@
 import "server-only";
+import { after } from "next/server";
+import { acquireSyncLease } from "./sync-lock";
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb, dbDriver, schema, type Db } from "@/lib/db";
 import { getProvider } from "@/lib/providers";
@@ -47,6 +49,7 @@ const g = globalThis as unknown as { __analystSync?: SyncState };
 const state: SyncState = g.__analystSync ?? (g.__analystSync = { lastRunAt: {} });
 
 async function waitForReadRefresh(work: Promise<unknown>): Promise<void> {
+  if (process.env.VERCEL) after(async () => { await work.catch(() => undefined); });
   let timer: ReturnType<typeof setTimeout> | undefined;
   try { await Promise.race([work, new Promise<void>((resolve) => { timer = setTimeout(resolve, 3000); })]); }
   finally { if (timer) clearTimeout(timer); }
@@ -225,7 +228,7 @@ async function insertTrades(db: Db, rows: UpstreamTrade[]): Promise<number> {
   for (const [wallet, ts] of lastByWallet) {
     await db
       .update(traders)
-      .set({ lastActiveAt: sql`greatest(coalesce(${traders.lastActiveAt}, ${new Date(ts)}), ${new Date(ts)})` })
+      .set({ lastActiveAt: sql`greatest(coalesce(${traders.lastActiveAt}, ${new Date(ts).toISOString()}::timestamptz), ${new Date(ts).toISOString()}::timestamptz)` })
       .where(eq(traders.id, wallet));
   }
   return inserted;
@@ -626,6 +629,7 @@ async function saveProfile(db: Db, p: UpstreamTraderProfile): Promise<number> {
 
 /** Fetch history on demand for any wallet, including those outside the leaderboard. */
 export async function refreshTraderProfiles(wallets: string[]): Promise<void> {
+  if (process.env.VERCEL) return; // Scheduled full sync owns profile writes on multiple instances.
   if (getProvider().isMock || wallets.length === 0) return;
   if (state.inflight || state.profileRefresh) return;
   const missing = [...new Set(wallets.map((w) => w.toLowerCase()))]
@@ -755,6 +759,11 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
   const provider = getProvider();
   state.inflight = (async () => {
     const db = await getDb();
+    const release = process.env.VERCEL ? await acquireSyncLease() : undefined;
+    if (release === null) {
+      return { kind, provider: provider.name, tradesUpserted: 0, durationMs: Date.now() - started };
+    }
+    try {
     const [log] = await db
       .insert(dataSourceSyncs)
       .values({ provider: provider.name, kind, status: "running" })
@@ -784,15 +793,17 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
         .where(eq(dataSourceSyncs.id, log.id));
       state.lastRunAt[kind] = Date.now();
       throw err;
-    } finally {
-      state.inflight = undefined;
     }
-  })();
+    } finally {
+      if (release) await release();
+    }
+  })().finally(() => { state.inflight = undefined; });
   return state.inflight;
 }
 
 /** Runs the first full sync when the database is empty. Safe to call on every request. */
 export async function ensureBootstrapped(): Promise<void> {
+  if (process.env.VERCEL) return;
   if (!state.bootstrapped) {
     state.bootstrapped = (async () => {
       const db = await getDb();
@@ -818,6 +829,7 @@ export async function ensureBootstrapped(): Promise<void> {
  * without a scheduler; errors are swallowed so reads never fail because upstream hiccuped.
  */
 export async function ensureFresh(kind: "full" | "trades", maxAgeMs: number): Promise<void> {
+  if (process.env.VERCEL) return; // The external scheduler owns ingestion; reads never bootstrap a full job.
   try {
     await ensureBootstrapped();
     // Rank/profile snapshots need refreshes too; trade-only polling otherwise

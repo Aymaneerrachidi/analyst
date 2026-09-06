@@ -1,8 +1,8 @@
 # Public launch checklist
 
-Status: source ready to review; public production deployment is not yet verified. Build and local regression/browser checks do not establish reliability under public traffic.
+Status: Vercel is now deployed. See [current Vercel operations](vercel-operations.md), which supersedes the original single-server assessment below. Real production ingestion, chart APIs and page loads have been verified. Vercel now has shared ingestion leases, persistent cloud caches, explicit migrations and configuration guards. Load capacity, moderation and disaster recovery remain unverified.
 
-## Recommended first deployment
+## Original single-server assessment (alternative to the current Vercel setup)
 
 Use one always-on Node.js web service with managed PostgreSQL and persistent image/market caches. A Render Node web service is one compatible starting point. GitHub Pages cannot run this application's database and server routes.
 

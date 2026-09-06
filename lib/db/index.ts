@@ -26,7 +26,7 @@ async function createPostgres(url: string): Promise<Db> {
   const postgres = (await import("postgres")).default;
   const client = postgres(url, { prepare: false, max: 10 });
   const db = drizzle(client, { schema });
-  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  if (!process.env.VERCEL) await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   holder.driver = "postgres";
   return db as unknown as Db;
 }

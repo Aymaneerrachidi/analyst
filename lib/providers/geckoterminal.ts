@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readCache, writeCache } from "./persistent-cache";
 
 const API = "https://api.geckoterminal.com/api/v2";
 type Cached = { value: unknown; at: number };
@@ -13,10 +13,10 @@ let retryAfter = 0;
 /** Public, credential-free market data. Cache and deduplicate to respect upstream limits. */
 export async function geckoJson(path: string, ttl = 5 * 60_000): Promise<unknown> {
   let hit = cache.get(path);
-  const diskRoot = process.cwd() + "/.data/market-cache";
-  const file = `${diskRoot}/${createHash("sha256").update(path).digest("hex")}.json`;
+  const key = createHash("sha256").update(path).digest("hex");
   if (!hit && !process.env.NODE_TEST_CONTEXT) {
-    try { hit = JSON.parse(await readFile(file, "utf8")) as Cached; cache.set(path, hit); } catch { /* First request for this market. */ }
+    hit = await readCache<Cached>("market-cache", key) ?? undefined;
+    if (hit) cache.set(path, hit);
   }
   if (hit && Date.now() - hit.at < ttl) return hit.value;
   if (Date.now() < retryAfter) {
@@ -33,8 +33,7 @@ export async function geckoJson(path: string, ttl = 5 * 60_000): Promise<unknown
     if (cache.size >= 500) cache.delete(cache.keys().next().value!);
     cache.set(path, { value, at: Date.now() });
     if (!process.env.NODE_TEST_CONTEXT) {
-      await mkdir(diskRoot, { recursive: true });
-      await writeFile(file, JSON.stringify({ value, at: Date.now() }));
+      await writeCache("market-cache", key, { value, at: Date.now() });
     }
     return value;
   })();

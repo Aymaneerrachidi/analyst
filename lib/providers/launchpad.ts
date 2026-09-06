@@ -1,9 +1,7 @@
 import "server-only";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readCache, writeCache } from "./persistent-cache";
 import { z } from "zod";
 
-const root = path.join(process.cwd(), ".data", "launchpad-cache");
 const detailsSchema = z.object({ token: z.string(), name: z.string(), symbol: z.string(), decimals: z.number(), totalSupplyWei: z.string(), logo: z.string().optional(), quoteAsset: z.object({ decimals: z.number(), symbol: z.string(), assetClass: z.string().optional() }) });
 export interface LaunchpadToken { address: string; name: string; symbol: string; image?: string; price: number | null; fdv: number | null }
 const cache = new Map<string, { at: number; token: LaunchpadToken | null }>();
@@ -13,9 +11,8 @@ const inflight = new Map<string, Promise<LaunchpadToken | null>>();
 export async function fetchLaunchpadToken(address: string): Promise<LaunchpadToken | null> {
   address = address.toLowerCase();
   if (!/^0x[a-f0-9]{40}$/.test(address)) return null;
-  const file = path.join(root, `${address}.json`);
   let hit = cache.get(address);
-  if (!hit) { try { hit = JSON.parse(await readFile(file, "utf8")); if (hit) cache.set(address, hit); } catch { /* First fetch. */ } }
+  if (!hit) { hit = await readCache<{ at: number; token: LaunchpadToken | null }>("launchpad-cache", address) ?? undefined; if (hit) cache.set(address, hit); }
   if (hit && Date.now() - hit.at < 15 * 60_000) return hit.token;
   const active = inflight.get(address); if (active) return active;
   const task = (async () => {
@@ -34,7 +31,7 @@ export async function fetchLaunchpadToken(address: string): Promise<LaunchpadTok
     const image = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
     const token: LaunchpadToken = { address, name: details.name, symbol: details.symbol, image: details.logo && image ? image : undefined, price, fdv: price && Number.isFinite(supply) ? price * supply : null };
     const entry = { token, at: Date.now() }; cache.set(address, entry);
-    await mkdir(root, { recursive: true }); await writeFile(file, JSON.stringify(entry));
+    await writeCache("launchpad-cache", address, entry);
     return token;
   })().catch(() => hit?.token ?? null).then((token) => {
     if (!token) cache.set(address, { at: Date.now(), token: null });
@@ -68,7 +65,7 @@ export async function cachedLaunchpadToken(address: string): Promise<{ token: La
   const hit = cache.get(address.toLowerCase());
   if (hit?.token) return { token: hit.token, at: hit.at };
   try {
-    const stored = JSON.parse(await readFile(path.join(root, `${address.toLowerCase()}.json`), "utf8"));
-    return stored.token?.address === address.toLowerCase() ? stored : null;
+    const stored = await readCache<{ token: LaunchpadToken; at: number }>("launchpad-cache", address.toLowerCase());
+    return stored?.token?.address === address.toLowerCase() ? stored : null;
   } catch { return null; }
 }

@@ -22,6 +22,22 @@ before(async () => {
 });
 after(async () => { await client.close(); });
 
+test("sync lease excludes overlapping jobs and a stale owner cannot release its replacement", async () => {
+  const { acquireSyncLease } = await import("../lib/services/sync-lock");
+  const release = await acquireSyncLease();
+  assert.ok(release);
+  assert.equal(await acquireSyncLease(), null);
+  await db.update(schema.appMeta).set({ updatedAt: new Date(Date.now() - 7 * 60_000) }).where(eq(schema.appMeta.key, "lock:ingestion"));
+  const replacement = await acquireSyncLease();
+  assert.ok(replacement);
+  await release();
+  assert.equal(await acquireSyncLease(), null);
+  await replacement();
+  const fresh = await acquireSyncLease();
+  assert.ok(fresh);
+  await fresh();
+});
+
 test("upstream credentials never reach the public quote service; late and tied trades survive replay", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.UPSTREAM_API_KEY;
