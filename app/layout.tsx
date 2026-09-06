@@ -1,3 +1,4 @@
+import { AlertEngine } from "@/components/tracking/alert-engine";
 import type { Metadata, Viewport } from "next";
 
 export const maxDuration = 300;
@@ -52,6 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <QueryProvider>
           <TradeStreamProvider enabled={env().DATA_PROVIDER === "kolhood"}>
           <TooltipProvider>
+            <AlertEngine />
             <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-neon focus:px-5 focus:py-3 focus:text-background">Skip to content</a>
             <TopNav />
             <DiscoveryPanel />

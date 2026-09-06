@@ -7,6 +7,8 @@ const FILTERS: TradeFilter[] = ["all", "buys", "sells", "large", "top"];
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  const wallets = url.searchParams.get("wallets")?.split(",");
+  if (wallets && (wallets.length > 100 || wallets.some(w => !/^0x[\da-f]{40}$/i.test(w)))) return NextResponse.json({ error: "Invalid wallets" }, { status: 400 });
   await ensureFresh("trades", 8_000);
   const afterSeq = intParam(url, "after", -1, -1, Number.MAX_SAFE_INTEGER);
   const beforeSeq = intParam(url, "before", -1, -1, Number.MAX_SAFE_INTEGER);
@@ -17,6 +19,7 @@ export async function GET(req: Request) {
       beforeSeq: beforeSeq >= 0 ? beforeSeq : undefined,
       filter: oneOf(searchParam(url, "filter"), FILTERS, "all"),
       minUsd: floatParam(url, "minUsd"),
+      traderIds: wallets,
       traderId: searchParam(url, "trader"),
       tokenAddress: searchParam(url, "token"),
       query: searchParam(url, "q"),

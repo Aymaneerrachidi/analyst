@@ -1,0 +1,15 @@
+# Following, alerts and trade analysis
+
+Following and alert rules are stored in `analyst:tracking:v1` in browser local storage. They do not sync between devices or accounts. Limits: 100 followed traders, 30 rules, 100 inbox entries, 2,000 remembered alert identities.
+
+The root alert engine listens to the existing live trade stream and reconciles the latest 200 stored trades every 10 seconds when a rule is enabled. Rules filter followed wallets, one wallet or all covered wallets; buy/sell side; minimum USD value; and an optional exact token symbol or contract. Only events after rule creation/re-enabling and within the last ten minutes qualify. Historical snapshots are excluded. Multiple matching rules produce one inbox entry per transaction/wallet/token/side. Web Locks prevent duplicate processing between tabs where supported. Notifications require an explicit browser permission click and work while the app is open; this is not background push delivery. Imported Defined snapshots do not supply continuous wallet coverage.
+
+The following feed queries selected wallets before applying the result limit, then merges incoming events using chain identities. Saved names and real avatars accompany follow controls on trader lists and profiles.
+
+Token charts include up to 200 recorded swaps plus incoming events. Nearby trades are grouped by side and time; the marker retains the representative trade's actual time and execution price. Price markers are plotted only on USD charts with a known USD execution price. A separate timestamp timeline includes trades without prices and non-USD charts. Selecting a marker reveals the underlying trades. Filters cover followed traders, action and minimum USD size.
+
+Performance uses all stored swaps for the selected wallet. Average entry and exit are quantity-weighted USD prices and require complete pricing/quantity for that side. Sold holding time uses the average acquisition timestamp of recorded inventory, weighted by matched USD cost. Partial sells only realize the covered fraction; missing quantities invalidate subsequent inventory inference. Coverage counts and uncovered sells are shown. Recorded open quantity is not an on-chain wallet balance; transfers, fees and unrecorded trades are outside the calculation.
+
+The green activity signal is a deterministic accumulation screen: activity within ten minutes, at least three more buyers than sellers, at least 65% buy USD volume, at least $1,000 net inflow, Analyst score at least 70 and an available positive price. All conditions must pass. It refreshes every 30 seconds and deactivates on refresh errors. It is not an expected-return prediction.
+
+Validation includes regression checks for replay filtering, alert deduplication, incomplete inventory, weighted prices/holding time, marker coordinates and stale activity signals, plus browser coverage for following persistence, custom alert creation/edit/pause/delete, inbox delivery/reload deduplication, chart marker keyboard access and 320px layouts. Browser delivery fixtures run only in the isolated mock test environment.

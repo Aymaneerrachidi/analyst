@@ -2,6 +2,70 @@ import { test, expect, request } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type { SocialPost } from "../lib/types";
 
+test("following persists, custom alerts deduplicate, chart markers open real trade details", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto("/traders");
+  await page.locator("main a[href^='/trader/']").first().click();
+  await expect(page).toHaveURL(/\/trader\//);
+  await expect(page.getByRole("heading", { name: "Entry, exit & holding time" })).toBeVisible();
+  const wallet = page.url().split("/").at(-1)!;
+  await page.getByRole("button", { name: /^Follow / }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: /^Unfollow / })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Entry, exit & holding time" })).toBeVisible();
+  await expect(page.getByText(/Analyzing recorded trades/)).toHaveCount(0);
+  const performance = await page.request.get(`/api/traders/${wallet}/performance`);
+  expect(performance.ok()).toBe(true);
+  expect((await performance.json()).positions.length).toBeGreaterThan(0);
+  await page.getByRole("link", { name: "Followed traders", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your traders" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Unfollow / })).toBeVisible();
+  const following = await page.request.get(`/api/trades?wallets=${wallet}&limit=100`);
+  expect((await following.json()).trades.every((t: { traderId: string }) => t.traderId === wallet)).toBe(true);
+  expect((await page.request.get("/api/trades?wallets=invalid")).status()).toBe(400);
+  const real = (await (await page.request.get(`/api/trades?trader=${wallet}&limit=1`)).json()).trades[0];
+  await page.goto("/alerts");
+  await page.getByLabel("Rule name", { exact: true }).fill("Large tracked buys");
+  await page.getByLabel("Minimum trade value (USD)", { exact: true }).fill("1000");
+  await page.getByLabel("Action", { exact: true }).selectOption("BUY");
+  await page.getByRole("button", { name: "Save alert", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pause Large tracked buys" })).toBeVisible();
+  // Isolated test delivery; production receives provider events. Timestamp is after the rule was armed.
+  const event = { ...real, id: "qa-alert", side: "BUY", amountUsd: 1234, timestamp: new Date(Date.now() + 1000).toISOString(), txHash: `0x${"f".repeat(64)}` };
+  await page.route("**/api/trades?limit=200", route => route.fulfill({ json: { trades: [event] } }));
+  await page.reload();
+  await expect(page.locator("article")).toHaveCount(1);
+  await expect(page.locator("article")).toContainText("bought");
+  await page.reload();
+  await expect(page.locator("article")).toHaveCount(1);
+  await page.getByRole("button", { name: "Pause Large tracked buys" }).click();
+  await expect(page.getByRole("button", { name: "Enable Large tracked buys" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Rule name", { exact: true }).fill("Updated rule");
+  await page.getByRole("button", { name: "Save alert", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Delete Updated rule" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete Updated rule" }).click();
+  await page.getByRole("button", { name: "Clear inbox", exact: true }).click();
+  await expect(page.locator("article")).toHaveCount(0);
+  await page.goto(`/token/${real.token.address}`);
+  const chart = page.getByRole("region", { name: `${real.token.symbol} chart` });
+  await chart.getByRole("button", { name: "7D", exact: true }).click();
+  const marker = chart.getByRole("button", { name: /^Timeline / }).first();
+  await expect(marker).toBeVisible();
+  await marker.focus(); await page.keyboard.press("Enter");
+  await expect(chart.getByLabel("Selected trades")).toBeVisible();
+  await chart.getByRole("button", { name: "Close details" }).click();
+  await chart.getByLabel("Marker traders").selectOption("following");
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const path of [`/token/${real.token.address}`, `/trader/${wallet}`, "/following", "/alerts"]) {
+    await page.goto(path);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), path).toBe(true);
+  }
+  await page.screenshot({ path: ".playwright-mcp/analyst-alerts-mobile.png", fullPage: true });
+  expect(errors).toEqual([]);
+});
+
 test("overview fits desktop and mobile, and search, score details, and navigation work", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

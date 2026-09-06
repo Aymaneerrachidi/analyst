@@ -1,3 +1,4 @@
+import { ActivitySignal } from "@/components/tracking/activity-signal";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -148,6 +149,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
       </div>
       <aside className="token-insights space-y-3" aria-label="Token insights">      {/* Intelligence */}
       <section className="space-y-3">
+        <ActivitySignal token={token} />
         <AnalystScoreCard score={token.score} window={window.toUpperCase()} />
         <div className="card p-5">
           <p className="label-caps">KOL sentiment · {window.toUpperCase()}</p>

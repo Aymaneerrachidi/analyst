@@ -127,6 +127,7 @@ export interface TokenCandle {
 }
 
 export interface TokenChartData {
+  markers?: AnalystTrade[];
   window: FlowWindow;
   candles: TokenCandle[];
   activity: { t: number; buyUsd: number; sellUsd: number; buys: number; sells: number }[];

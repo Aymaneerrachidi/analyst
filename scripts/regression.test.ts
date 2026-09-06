@@ -9,6 +9,60 @@ import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/service
 import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
 import { normalizeDefinedImport } from "../lib/providers/defined-import";
 import { executionPriceSamples } from "../lib/chart-executions";
+import { analyzePerformance } from "../lib/performance";
+import { groupMarkers, executionPrice } from "../lib/chart-markers";
+import { emptyTracking, evaluateAlerts, matchesAlert, parseTracking, type AlertRule } from "../lib/client/tracking-model";
+import { activitySignal } from "../lib/activity-signal";
+import type { AnalystTrade, AnalystToken } from "../lib/types";
+
+const trackingTrade = (overrides: Partial<AnalystTrade> = {}): AnalystTrade => ({
+  id: "fixture", seq: 1, traderId: `0x${"a".repeat(40)}`,
+  trader: { id: `0x${"a".repeat(40)}`, wallet: `0x${"a".repeat(40)}`, name: "Fixture", handle: "fixture" },
+  token: { address: `0x${"b".repeat(40)}`, symbol: "FIX", name: "Fixture" }, side: "BUY", amountUsd: 100, tokenAmount: 10, price: 10,
+  timestamp: new Date(1_000_000).toISOString(), txHash: `0x${"c".repeat(64)}`, ...overrides,
+});
+test("alert rules filter real events, ignore replay and merge matching rules into one notice", () => {
+  const t = trackingTrade();
+  const rule: AlertRule = { id: "rule", name: "Buys", scope: "following", wallet: "", side: "BUY", minUsd: 100, token: "$fix", enabled: true, armedAt: 999_000 };
+  const state = { ...emptyTracking(), following: [t.trader], rules: [rule, { ...rule, id: "two", name: "Second" }] };
+  const alerts = evaluateAlerts([t, { ...t, id: "stream", seq: 0 }], state, 1_000_001);
+  assert.equal(alerts.length, 1); assert.deepEqual(alerts[0].ruleNames, ["Buys", "Second"]);
+  assert.equal(evaluateAlerts([t], { ...state, seen: [alerts[0].id] }, 1_000_001).length, 0);
+  assert.equal(matchesAlert(t, rule, [], 1_000_001), false);
+  assert.equal(matchesAlert({ ...t, amountUsd: null }, rule, state.following, 1_000_001), false);
+  assert.equal(matchesAlert({ ...t, side: "SELL" }, rule, state.following, 1_000_001), false);
+  assert.equal(matchesAlert(t, { ...rule, armedAt: 1_000_002 }, state.following, 1_000_001), false);
+  assert.equal(matchesAlert(t, rule, state.following, 2_000_001), false);
+  assert.equal(matchesAlert(t, { ...rule, enabled: false }, state.following, 1_000_001), false);
+  assert.equal(matchesAlert(t, { ...rule, scope: "wallet", wallet: `0x${"d".repeat(40)}` }, state.following, 1_000_001), false);
+  assert.deepEqual(parseTracking("broken"), emptyTracking());
+  assert.equal(parseTracking(JSON.stringify(state)).rules.length, 2);
+});
+test("performance uses weighted prices and holding time; partial and missing quantities stay explicit", () => {
+  const row = { tokenAddress: "token", symbol: "FIX", side: "BUY", amountUsd: 100, tokenAmount: 10, timestamp: new Date(0) };
+  const [p] = analyzePerformance([row, { ...row, amountUsd: 300, timestamp: new Date(3_600_000) }, { ...row, side: "SELL", tokenAmount: 30, amountUsd: 900, timestamp: new Date(7_200_000) }]);
+  assert.equal(p.averageEntry, 20); assert.equal(p.averageExit, 30);
+  assert.equal(p.realizedPnl, 200); assert.equal(p.holdingMs, 5_400_000);
+  assert.equal(p.recordedOpenQuantity, 0); assert.equal(p.uncoveredSells, 1);
+  const [missing] = analyzePerformance([row, { ...row, tokenAmount: null }, { ...row, side: "SELL", timestamp: new Date(1000) }]);
+  assert.equal(missing.averageEntry, null); assert.equal(missing.recordedOpenQuantity, null);
+  assert.equal(missing.realizedPnl, null); assert.equal(missing.holdingMs, null); assert.equal(missing.priced, 2);
+});
+test("chart grouping retains actual execution coordinates and never makes up missing prices", () => {
+  const t = trackingTrade();
+  assert.equal(executionPrice({ ...t, price: null, tokenAmount: null }), null);
+  assert.equal(executionPrice({ ...t, price: null }), 10);
+  const groups = groupMarkers([t, { ...t, id: "second", timestamp: new Date(1_000_100).toISOString() }, { ...t, side: "SELL" }], 999_000, 1_100_000);
+  assert.equal(groups.length, 2); assert.equal(groups[0].trades.length, 2); assert.equal(groups[0].t, 1_000_100);
+  assert.equal(groupMarkers([t], 1_000_001, 2_000_000).length, 0);
+});
+test("green activity signal requires every criterion and expires with stale activity", () => {
+  const token = { lastActivityAt: new Date(1_000_000).toISOString(), buyers: 5, sellers: 1, buyUsd: 2000, sellUsd: 500, netAccumulation: 1500, price: 1, score: { score: 80 } } as AnalystToken;
+  assert.equal(activitySignal(token, 1_000_001).green, true);
+  assert.equal(activitySignal(token, 2_000_000).green, false);
+  assert.equal(activitySignal({ ...token, price: null }, 1_000_001).green, false);
+  assert.equal(activitySignal({ ...token, buyers: 2 }, 1_000_001).green, false);
+});
 
 test("execution chart fallback uses only historical prices or exact trade quantities without fabricated OHLC", () => {
   const t = new Date("2026-09-06T12:00:00Z");

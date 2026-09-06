@@ -1,8 +1,9 @@
 "use client";
+import { TrackingLinks } from "@/components/tracking/tracking-links";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MagnifyingGlassIcon, ArrowUpRightIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { Wordmark } from "./brand";
 import { useSearchCommand } from "./search-command";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,7 @@ export function TopNav() {
   const { open } = useSearchCommand();
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-lg">
-      <div className="app-container flex h-16 items-center justify-between gap-4">
+      <div className="app-container flex h-16 items-center justify-between gap-2">
         <Wordmark />
         <nav className="hidden h-full items-center gap-5 lg:flex xl:gap-7" aria-label="Primary">
           {NAV_ITEMS.map((item) => {
@@ -46,7 +47,7 @@ export function TopNav() {
             );
           })}
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <button
             type="button"
             onClick={open}
@@ -59,9 +60,7 @@ export function TopNav() {
             </span>
             <kbd className="hidden rounded border border-border px-1.5 py-px font-mono text-[10px] text-muted sm:inline">/</kbd>
           </button>
-          <Link href="/live" className="hidden h-10 items-center gap-2 rounded-full bg-neon px-4 text-[13px] font-medium text-background transition-colors hover:bg-neon-hover xl:inline-flex">
-            Live terminal <ArrowUpRightIcon className="h-4 w-4" />
-          </Link>
+          <TrackingLinks />
         </div>
       </div>
     </header>

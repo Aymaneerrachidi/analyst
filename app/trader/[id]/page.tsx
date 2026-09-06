@@ -1,3 +1,5 @@
+import { Performance } from "@/components/tracking/performance";
+import { FollowButton } from "@/components/tracking/follow-button";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -76,6 +78,7 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
               )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              <FollowButton trader={trader} />
               {bestRank && (
                 <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-neon/30 bg-neon/10 px-2.5 text-xs font-semibold text-neon tnum">
                   #{bestRank[1]} {RANK_LABEL[bestRank[0]]}
@@ -134,6 +137,8 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
           periodPnl={{ "24h": trader.pnl24h, "7d": trader.pnl7d, "30d": trader.pnl30d, all: trader.realizedPnl }}
         />
       </section>
+
+      <Performance wallet={trader.wallet} />
 
       <WorkspaceTabs labels={["Token history", "Swaps", "Discussion"]}>
       {/* Positions */}

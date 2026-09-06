@@ -1,3 +1,4 @@
+import { FollowButton } from "@/components/tracking/follow-button";
 import Link from "next/link";
 import { formatCount, formatPct, formatRating, shortAddress } from "@/lib/format";
 import type { AnalystTrader } from "@/lib/types";
@@ -39,6 +40,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
             <tr className="border-b border-border">
               <th className={cn(HEAD, "w-14")}>#</th>
               <th className={HEAD}>Trader</th>
+              <th className={HEAD}>Follow</th>
               <th className={HEAD}>Rating</th>
               <th className={cn(HEAD, "text-right")}>Net PnL</th>
               <th className={cn(HEAD, "text-right")}>ROI</th>
@@ -67,6 +69,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                       </span>
                     </Link>
                   </td>
+                  <td className={CELL}><FollowButton trader={t} compact /></td>
                   <td className={CELL}>
                     <Rating value={t.communityRating} count={t.ratingCount} />
                   </td>
@@ -128,6 +131,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                   <PctDelta value={t.roi} className="block text-xs" />
                 </span>
               </Link>
+              <div className="px-4 pb-3"><FollowButton trader={t} /></div>
             </li>
           );
         })}

@@ -53,6 +53,7 @@ export interface ListTradesOptions {
   filter?: TradeFilter;
   minUsd?: number;
   traderId?: string;
+  traderIds?: string[];
   tokenAddress?: string;
   query?: string;
 }
@@ -67,6 +68,7 @@ export async function listTrades(opts: ListTradesOptions = {}): Promise<AnalystT
   if (opts.filter === "sells") where.push(eq(trades.side, "SELL"));
   if (opts.filter === "large") where.push(gte(trades.amountUsd, LARGE_TRADE_USD));
   if (opts.minUsd && opts.minUsd > 0) where.push(gte(trades.amountUsd, opts.minUsd));
+  if (opts.traderIds) where.push(inArray(trades.traderId, opts.traderIds.map(id => id.toLowerCase())));
   if (opts.traderId) where.push(eq(trades.traderId, opts.traderId.toLowerCase()));
   if (opts.tokenAddress) where.push(eq(trades.tokenAddress, opts.tokenAddress.toLowerCase()));
   if (opts.query) {
