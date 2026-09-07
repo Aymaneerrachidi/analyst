@@ -9,12 +9,23 @@ import { computePnl, summarizeWallets, type PnlInputTrade } from "../lib/service
 import { parseLiveTrade, mergeLiveTrades, matchesTrade } from "../lib/client/live-trades";
 import { normalizeDefinedImport } from "../lib/providers/defined-import";
 import { executionPriceSamples } from "../lib/chart-executions";
-import { chartTimeDomain, liveExecutionSeries } from "../lib/chart-series";
+import { chartTimeDomain, liveExecutionSeries, preserveChartHistory } from "../lib/chart-series";
 import { analyzePerformance } from "../lib/performance";
 import { groupMarkers, executionPrice } from "../lib/chart-markers";
 import { emptyTracking, evaluateAlerts, matchesAlert, parseTracking, type AlertRule } from "../lib/client/tracking-model";
 import { activitySignal } from "../lib/activity-signal";
-import type { AnalystTrade, AnalystToken } from "../lib/types";
+import type { AnalystTrade, AnalystToken, TokenChartData } from "../lib/types";
+
+test("empty provider responses retain only previously observed prices inside the requested window", () => {
+  const current: TokenChartData = { window: "1h", source: "unavailable", candles: [], activity: [], marketUrl: null };
+  const previous: TokenChartData = { ...current, source: "geckoterminal", candles: [{ t: 1_000_000, close: 5, volume: 100 }] };
+  const retained = preserveChartHistory(current, previous, 1_001_000);
+  assert.equal(retained.candles[0].close, 5);
+  assert.equal(retained.source, "geckoterminal");
+  assert.match(retained.error!, /previously retrieved/);
+  assert.equal(preserveChartHistory(current, previous, 5_000_000).candles.length, 0);
+  assert.equal(preserveChartHistory({ ...current, window: "7d" }, previous, 1_001_000).candles.length, 0);
+});
 
 const trackingTrade = (overrides: Partial<AnalystTrade> = {}): AnalystTrade => ({
   id: "fixture", seq: 1, traderId: `0x${"a".repeat(40)}`,

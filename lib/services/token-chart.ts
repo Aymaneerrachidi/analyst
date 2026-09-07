@@ -9,8 +9,23 @@ import { marketDataEnabled } from "@/lib/providers/market-data";
 import type { FlowWindow, TokenChartData, TokenCandle } from "@/lib/types";
 import { WINDOW_MS } from "./sync";
 import { executionPriceSamples } from "@/lib/chart-executions";
+import { preserveChartHistory } from "@/lib/chart-series";
+import { readCache, writeCache } from "@/lib/providers/persistent-cache";
 
 export async function getTokenChart(address: string, window: FlowWindow): Promise<TokenChartData> {
+  const result = await loadTokenChart(address, window);
+  if (getProvider().isMock) return result;
+  const key = `${address.toLowerCase()}-${window}`;
+  if (result.candles.length) {
+    await writeCache("chart-history", key, result);
+    return result;
+  }
+  // Providers can return an empty HTTP 200 during outages. Preserve real history
+  // across serverless instances instead of replacing a working chart with a blank.
+  return preserveChartHistory(result, await readCache<TokenChartData>("chart-history", key), Date.now());
+}
+
+async function loadTokenChart(address: string, window: FlowWindow): Promise<TokenChartData> {
   const db = await getDb();
   const span = WINDOW_MS[window];
   const now = Date.now();
