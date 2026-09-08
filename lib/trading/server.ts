@@ -34,6 +34,8 @@ async function providerJson(url: string, init: RequestInit) {
   try { r = await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(20_000) }); }
   catch { throw new TradingError("The quote provider is taking too long. Try again.", 504); }
   if (!r.ok) {
+    const detail = await r.text();
+    if (/TOKEN_NOT_AUTHORIZED_FOR_TRADE|TOKEN_RESTRICTED|JURISDICTION/i.test(detail)) throw new TradingError("This token requires additional trading access from the provider. It is not available through this app's current account.", 403);
     if (r.status === 401 || r.status === 403) throw new TradingError("Trading access is unavailable for this request.", 503);
     if (r.status === 429) throw new TradingError("The quote provider is busy. Wait a moment and refresh.", 429);
     if ([400, 404, 422].includes(r.status)) throw new TradingError("No supported route is available for this token and amount. Try a different amount.", 422);
@@ -59,7 +61,9 @@ export async function getQuote(input: TradeInput): Promise<TradeQuote> {
     if (!sameAddress(native(q.tokenIn), selling.address) || !sameAddress(native(q.tokenOut), buying.address) || q.amountIn !== sellAmount || q.inDecimals !== selling.decimals || q.outDecimals !== buying.decimals) throw new TradingError("The quote did not match the requested trade.");
     return { ...base, provider: "Umbra", executable: false, buyAmount: q.netOut, minBuyAmount: (BigInt(q.netOut) * BigInt(10000 - input.slippageBps) / BigInt(10000)).toString(), expiresAt: Date.now() + 15_000, routes: [...new Set(q.legs.flatMap((l) => l.venues))], fees: [{ token: buying.address, amount: q.fee, label: `Umbra fee (${q.feeBps / 100}%)` }] };
   }
-  const p = new URLSearchParams({ chainId: String(robinhood.id), sellToken: selling.address, buyToken: buying.address, sellAmount, slippageBps: String(input.slippageBps), ...(input.account ? { taker: input.account, recipient: input.account } : {}) });
+  // Ask for a floor 1 bp tighter than the user's cap. The provider rounds its
+  // minimum with floating-point arithmetic; keep our exact integer cap intact.
+  const p = new URLSearchParams({ chainId: String(robinhood.id), sellToken: selling.address, buyToken: buying.address, sellAmount, slippageBps: String(input.slippageBps - 1), ...(input.account ? { taker: input.account, recipient: input.account } : {}) });
   const raw = await providerJson(`https://api.0x.org/swap/allowance-holder/${input.mode === "review" ? "quote" : "price"}?${p}`, { headers: { "0x-api-key": process.env.ZERO_EX_API_KEY!, "0x-version": "v2" } });
   if (raw.liquidityAvailable !== true) throw new TradingError("No supported liquidity is available for this trade.", 422);
   const fee = z.object({ amount: uint, token: addressSchema }).nullable();

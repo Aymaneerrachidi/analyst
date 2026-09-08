@@ -30,6 +30,8 @@ async function fixture(page: Page, enabled: boolean) {
         if (method === "eth_chainId") return chain;
         if (method === "eth_getBalance") return uint(BigInt(10) ** BigInt(20));
         if (method === "eth_gasPrice") return "0x3b9aca00";
+        if (method === "eth_maxPriorityFeePerGas") return "0x0";
+        if (method === "eth_getBlockByNumber") return { number: "0x1", baseFeePerGas: "0x3b9aca00", gasLimit: "0x1c9c380", gasUsed: "0x0", timestamp: "0x6a9f0000", transactions: [] };
         if (method === "eth_estimateGas") return "0x30d40";
         if (method === "eth_call") {
           const data = params?.[0]?.data ?? "";

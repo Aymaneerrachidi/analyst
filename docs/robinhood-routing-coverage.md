@@ -45,4 +45,4 @@ node scripts/audit-routing.mjs --limit 16
 node --env-file=.env.local scripts/audit-routing.mjs --limit 50
 ```
 
-The second command can test 0x indicative buy/sell prices when `ZERO_EX_API_KEY` is configured locally. It never prints the key. For the deployed integration, provision the key in Vercel as a server-only variable. Obtain it from the [0x dashboard](https://dashboard.0x.org/). The script's authenticated branch has not run yet because no account key is configured. A dedicated chain RPC will also be needed for balances, simulation and receipt tracking.
+The second command can test 0x indicative buy/sell prices when `ZERO_EX_API_KEY` is configured locally. It never prints the key. For the deployed integration, provision the key in Vercel as a server-only variable. Obtain it from the [0x dashboard](https://dashboard.0x.org/). The authenticated branch has now run with the owner?s key. See `0x-authenticated-coverage-2026-09-08.json` and `in-app-trading.md` for current implementation and validation. A dedicated RPC is recommended for higher traffic; the public mainnet endpoint is used by default.

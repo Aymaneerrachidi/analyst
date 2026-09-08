@@ -26,6 +26,11 @@ test("request schema bounds slippage and rejects extra transaction fields", () =
 test("accepts native and exact-input ERC20 calls through genuine settlement contracts", () => {
   validateExecution(makeQuote(), account, [settler], now);
   validateExecution(makeQuote(true), account, [settler], now);
+  const q = makeQuote();
+  const nested = q.transaction!.data;
+  q.transaction!.to = ALLOWANCE_HOLDER;
+  q.transaction!.data = encodeFunctionData({ abi: holderAbi, functionName: "exec", args: [settler, "0x0000000000000000000000000000000000000000", BigInt(q.sellAmount), settler, nested] });
+  validateExecution(q, account, [settler], now);
 });
 test("rejects expired quotes, different wallets, unverified providers and arbitrary spenders", () => {
   for (const change of [{ expiresAt: now }, { expiresAt: now + 90_000 }, { account: attacker }, { executable: false }, { provider: "Umbra" as const }, { spender: attacker }]) assert.throws(() => validateExecution({ ...makeQuote(), ...change }, account, [settler], now));

@@ -8,7 +8,7 @@ import { ALLOWANCE_HOLDER, SETTLER_REGISTRY, registryAbi, robinhood, sameAddress
 
 type Provider = EIP1193Provider & { on?: (event: string, fn: (...args: unknown[]) => void) => void; removeListener?: (event: string, fn: (...args: unknown[]) => void) => void };
 type WalletOption = { info: { uuid: string; name: string }; provider: Provider };
-type Prepared = { to: Address; data: Hex; value: Hex; gas: Hex; gasPrice: Hex; fee: string; action: "swap" | "approve" | "reset" };
+type Prepared = { to: Address; data: Hex; value: Hex; gas: Hex; maxFeePerGas: Hex; maxPriorityFeePerGas: Hex; fee: string; action: "swap" | "approve" | "reset" };
 type Receipt = { hash: Hex; status: "pending" | "success" | "reverted"; action: Prepared["action"] };
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetch(url, { ...options, cache: "no-store" }); const data = await r.json();
@@ -141,14 +141,16 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
         }
       }
       const call = { account, to: tx.to, data: tx.data, value: BigInt(tx.value) };
-      const gasPrice = await client.getGasPrice();
-      const [estimate, simulation] = await Promise.all([client.estimateGas({ ...call, gasPrice }), client.call({ ...call, gasPrice })]);
-      if (action !== "swap" && simulation.data && simulation.data !== "0x" && BigInt(simulation.data) === BigInt(0)) throw new Error("This token rejected its approval.");
+      const estimateFees = await client.estimateFeesPerGas();
+      const fees = { maxFeePerGas: estimateFees.maxFeePerGas * BigInt(2), maxPriorityFeePerGas: estimateFees.maxPriorityFeePerGas };
+      const estimate = await client.estimateGas({ ...call, ...fees });
       const gas = estimate * BigInt(120) / BigInt(100);
-      if (nativeBalance < BigInt(tx.value) + gas * gasPrice) throw new Error("Not enough ETH for this trade and network gas.");
+      if (nativeBalance < BigInt(tx.value) + gas * fees.maxFeePerGas) throw new Error("Not enough ETH for this trade and network gas.");
+      const simulation = await client.call({ ...call, ...fees, gas });
+      if (action !== "swap" && simulation.data && simulation.data !== "0x" && BigInt(simulation.data) === BigInt(0)) throw new Error("This token rejected its approval.");
       await walletMatches(provider, account, id);
       validateExecution(q, account, [current, previous]);
-      setReview(q); setPrepared({ to: tx.to, data: tx.data, value: toHex(BigInt(tx.value)), gas: toHex(gas), gasPrice: toHex(gasPrice), fee: (gas * gasPrice).toString(), action });
+      setReview(q); setPrepared({ to: tx.to, data: tx.data, value: toHex(BigInt(tx.value)), gas: toHex(gas), maxFeePerGas: toHex(fees.maxFeePerGas), maxPriorityFeePerGas: toHex(fees.maxPriorityFeePerGas), fee: (gas * fees.maxFeePerGas).toString(), action });
     } catch (e) { if (id === generation.current) setError(readable(e)); } finally { setBusy(""); }
   }
   async function checkReceipt(value: Receipt) {

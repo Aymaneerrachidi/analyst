@@ -1,0 +1,1345 @@
+{
+  "capturedAt": "2026-09-08T02:37:30.337Z",
+  "chainId": 4663,
+  "methodology": "Recent unique tokens from ANALYST feed; quote buys with 0.01 ETH and reverse sells of quoted net output. Quote availability only; no wallet simulation or transaction submission. Sample is not the chain's entire token universe.",
+  "zeroEx": {
+    "status": 200,
+    "sources": [
+      "0x_RFQ",
+      "Alandale",
+      "Alandale_CL",
+      "Alley",
+      "Bags",
+      "Baseline",
+      "BrownFi_V3",
+      "Curve",
+      "ERC4626",
+      "Ekubo_V3",
+      "Fermi",
+      "Flap",
+      "Giga",
+      "Giga_CL",
+      "Hanji",
+      "Kaliber",
+      "Kipseli",
+      "LiquidCore",
+      "Metric",
+      "Metric_V2",
+      "Native_V2",
+      "PancakeSwap_V2",
+      "PancakeSwap_V3",
+      "Parity_V3",
+      "Pons_V2",
+      "Pons_V2_1",
+      "Quotrons",
+      "Ramses_DLMM",
+      "Ramses_Legacy",
+      "Ramses_V3",
+      "RobinSwap_V3",
+      "SectorOne",
+      "Sheriff_V4",
+      "SushiSwap_V3",
+      "Swaap_V2",
+      "SwapHood_V2",
+      "SwapHood_V3",
+      "UP",
+      "UP_CL",
+      "Uniswap_V2",
+      "Uniswap_V3",
+      "Uniswap_V4",
+      "Virtuals"
+    ],
+    "note": "Source discovery only; per-token quote testing still required."
+  },
+  "results": [
+    {
+      "address": "0x23d03dc1d017991dd32c3e25709900cd66b971eb",
+      "symbol": "PO₄³",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1352,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "8918941406418023308520195",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 375,
+        "quoted": true,
+        "amountIn": "8918941406418023308520195",
+        "netOut": "8687316344701056",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 205,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "9174591336744149488586887",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 409,
+          "quoted": true,
+          "amountIn": "9174591336744149488586887",
+          "buyAmount": "9189762759522465",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "13805352167537",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xf5f5f51c4ab83c303c4fad5b6a0838e106ef1e18",
+      "symbol": "CONCERN",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1623,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "225720956370207528431839",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 231,
+        "quoted": true,
+        "amountIn": "225720956370207528431839",
+        "netOut": "10121445746106809",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 667,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "218336030610639349433344",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V3",
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 383,
+          "quoted": true,
+          "amountIn": "218336030610639349433344",
+          "buyAmount": "9547896181448860",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "14343359311145",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4",
+            "Ramses_V3"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xedd3132fb9ac24438e066b767e16638e22236036",
+      "symbol": "PAWN",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 386,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 181,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "5690700976859819991616243",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 284,
+          "quoted": true,
+          "amountIn": "5690700976859819991616243",
+          "buyAmount": "65133923832765",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "97847657242",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4",
+            "Fermi",
+            "Alandale_CL"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x3798b92cfceb29fd9d9156ee004ee2e1ecb43cd1",
+      "symbol": "INSIDER",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 388,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 195,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "5817089285762852648282814",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 196,
+          "quoted": true,
+          "amountIn": "5817089285762852648282814",
+          "buyAmount": "472174751423690",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "709326116318",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x1f4fb9dcf9f526de4da99be5c551c8d5d6630ea1",
+      "symbol": "PONLIX",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 241,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 196,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "5476143026313890207720818",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 180,
+          "quoted": true,
+          "amountIn": "5476143026313890207720818",
+          "buyAmount": "9467963200919040",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "14223279720973",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xdc4dd8839f02f2242e9552fe4652635fb7f95cc6",
+      "symbol": "FIG",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 428,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "491550474786455000397265",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 4.7%",
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 284,
+        "quoted": true,
+        "amountIn": "491550474786455000397265",
+        "netOut": "8272812418760024",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%",
+          "Uni v4 5%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 348,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "554554000954472029537160",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V3",
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 227,
+          "quoted": true,
+          "amountIn": "554554000954472029537160",
+          "buyAmount": "9667380025240660",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "14522854319340",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4",
+            "Ekubo_V3"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xe84f3503e873389cd11f51dd69efb7085d65e18e",
+      "symbol": "OUTDAY",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 441,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "3266352916188973186895659",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 160,
+        "quoted": true,
+        "amountIn": "3266352916188973186895659",
+        "netOut": "8757054198216207",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 183,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "3359957958262745067340026",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 170,
+          "quoted": true,
+          "amountIn": "3359957958262745067340026",
+          "buyAmount": "9264489916997565",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "13917611292438",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V4"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x8e6633487182c3a9154c525aae90c3340148d33d",
+      "symbol": "PROPHOOD",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 438,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 186,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "5788584973953783155984898",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 174,
+          "quoted": false,
+          "amountIn": "5788584973953783155984898",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "No indicative price"
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x51babd632adef017d57beedcf130b03d8cd219d7",
+      "symbol": "TYGR",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 199,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 269,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "9295918257549725499525925",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V3",
+            "Alandale_CL",
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 429,
+          "ms": 130,
+          "quoted": false,
+          "amountIn": "9295918257549725499525925",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "Rate limit exceeded. Please try again shortly or visit https://0x.org/pricing to get higher rate limits."
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x7679e8f99782d5c0a555e256fab9b79909083ec7",
+      "symbol": "MOON",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 213,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null,
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 265,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "5582774002788617074056151",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V3",
+            "Pons_V2_1"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 429,
+          "ms": 131,
+          "quoted": false,
+          "amountIn": "5582774002788617074056151",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "Rate limit exceeded. Please try again shortly or visit https://0x.org/pricing to get higher rate limits."
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+      "symbol": "MSFT",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1079,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "50497954516942497",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.9%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 513,
+        "quoted": true,
+        "amountIn": "50497954516942497",
+        "netOut": "10055681493119781",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.0087%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 422,
+          "ms": 130,
+          "quoted": false,
+          "amountIn": "10000000000000000",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE"
+        },
+        "sell": null,
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xad25ac6c84d497db898fa1e8387bf6af3532a1c4",
+      "symbol": "BABA",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1077,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "221005876357496675",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.1%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 513,
+        "quoted": true,
+        "amountIn": "221005876357496675",
+        "netOut": "9776039449587731",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0.1%",
+          "Uni v4 0.0087%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 422,
+          "ms": 137,
+          "quoted": false,
+          "amountIn": "10000000000000000",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE"
+        },
+        "sell": null,
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+      "symbol": "SPCX",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 3378,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "170341835581706027",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.0375%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 733,
+        "quoted": true,
+        "amountIn": "170341835581706027",
+        "netOut": "10880569166680362",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 422,
+          "ms": 373,
+          "quoted": false,
+          "amountIn": "10000000000000000",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE"
+        },
+        "sell": null,
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+      "symbol": "GME",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 3377,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "1320364245160741023",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.3%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 732,
+        "quoted": true,
+        "amountIn": "1320364245160741023",
+        "netOut": "10298344250473555",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 422,
+          "ms": 388,
+          "quoted": false,
+          "amountIn": "10000000000000000",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE"
+        },
+        "sell": null,
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0xfb5b5778d45ae47f15323fb59b666c655174a79c",
+      "symbol": "HOODON",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1919,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "199525394518477916",
+        "feeBps": 100,
+        "venues": [
+          "Uni v3 0.01%",
+          "Uni v3 0.3%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 342,
+        "quoted": true,
+        "amountIn": "199525394518477916",
+        "netOut": "9740104596496876",
+        "feeBps": 100,
+        "venues": [
+          "Uni v3 0.3%",
+          "Uni v3 0.01%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 200,
+          "ms": 215,
+          "quoted": true,
+          "amountIn": "10000000000000000",
+          "buyAmount": "201358686375427465",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "15000000000000",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Alandale_CL",
+            "Ramses_DLMM",
+            "Fermi",
+            "Uniswap_V3"
+          ],
+          "error": null
+        },
+        "sell": {
+          "status": 200,
+          "ms": 198,
+          "quoted": true,
+          "amountIn": "201358686375427465",
+          "buyAmount": "9914006024339900",
+          "fees": {
+            "integratorFee": null,
+            "integratorFees": null,
+            "zeroExFee": {
+              "amount": "14893349060111",
+              "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "type": "volume"
+            },
+            "gasFee": null
+          },
+          "venues": [
+            "Uniswap_V3"
+          ],
+          "error": null
+        },
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    },
+    {
+      "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+      "symbol": "DJT",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1859,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "2734437326554141189",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0.0087%",
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 400,
+        "quoted": true,
+        "amountIn": "2734437326554141189",
+        "netOut": "9984823569036315",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "zeroEx": {
+        "buy": {
+          "status": 422,
+          "ms": 145,
+          "quoted": false,
+          "amountIn": "10000000000000000",
+          "buyAmount": null,
+          "fees": null,
+          "venues": [],
+          "error": "BUY_TOKEN_NOT_AUTHORIZED_FOR_TRADE"
+        },
+        "sell": null,
+        "note": "Indicative prices, not wallet-specific executable quotes."
+      }
+    }
+  ],
+  "summary": {
+    "tokens": 16,
+    "buyQuotes": 10,
+    "bothDirections": 10,
+    "observedVenues": [
+      "Uni v4 0%",
+      "Uni v4 dyn",
+      "Uni v4 4.7%",
+      "Uni v4 5%",
+      "Uni v4 0.9%",
+      "Uni v4 0.0087%",
+      "Uni v4 0.1%",
+      "Uni v4 0.0375%",
+      "Uni v4 0.3%",
+      "Uni v3 0.01%",
+      "Uni v3 0.3%"
+    ]
+  },
+  "firmQuoteValidation": [
+    {
+      "symbol": "CONCERN",
+      "token": "0xf5f5f51c4ab83c303c4fad5b6a0838e106ef1e18",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Alandale_CL",
+        "UP_CL",
+        "Uniswap_V4"
+      ],
+      "minimum": "2191018210386288660024",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "CONCERN",
+      "token": "0xf5f5f51c4ab83c303c4fad5b6a0838e106ef1e18",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Uniswap_V4",
+        "Ekubo_V3",
+        "Kipseli"
+      ],
+      "minimum": "43475474736",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "65633276",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "PAWN",
+      "token": "0xedd3132fb9ac24438e066b767e16638e22236036",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Pons_V2_1"
+      ],
+      "minimum": "56950179350826406955103",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "PAWN",
+      "token": "0xedd3132fb9ac24438e066b767e16638e22236036",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Pons_V2_1"
+      ],
+      "minimum": "1630974528",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "2462235",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "PONLIX",
+      "token": "0x1f4fb9dcf9f526de4da99be5c551c8d5d6630ea1",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Pons_V2_1"
+      ],
+      "minimum": "54798625347403733105535",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "PONLIX",
+      "token": "0x1f4fb9dcf9f526de4da99be5c551c8d5d6630ea1",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Pons_V2_1"
+      ],
+      "minimum": "1730145744",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "2611945",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "FIG",
+      "token": "0xdc4dd8839f02f2242e9552fe4652635fb7f95cc6",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Alandale_CL",
+        "UP_CL",
+        "Uniswap_V4"
+      ],
+      "minimum": "5575152116885238017772",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "FIG",
+      "token": "0xdc4dd8839f02f2242e9552fe4652635fb7f95cc6",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Uniswap_V4"
+      ],
+      "minimum": "17151821280",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "25893456",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "OUTDAY",
+      "token": "0xe84f3503e873389cd11f51dd69efb7085d65e18e",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Uniswap_V4"
+      ],
+      "minimum": "33979618536802861802424",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "OUTDAY",
+      "token": "0xe84f3503e873389cd11f51dd69efb7085d65e18e",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Uniswap_V4"
+      ],
+      "minimum": "2733522768",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "4126703",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "HOODON",
+      "token": "0xfb5b5778d45ae47f15323fb59b666c655174a79c",
+      "side": "buy",
+      "validated": true,
+      "routes": [
+        "Kipseli",
+        "Uniswap_V3"
+      ],
+      "minimum": "2002005890730195",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "150000000000",
+          "label": "0x fee"
+        }
+      ]
+    },
+    {
+      "symbol": "HOODON",
+      "token": "0xfb5b5778d45ae47f15323fb59b666c655174a79c",
+      "side": "sell",
+      "validated": true,
+      "routes": [
+        "Uniswap_V3",
+        "Ramses_V3"
+      ],
+      "minimum": "49011024306679200",
+      "fees": [
+        {
+          "token": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "amount": "73990072926763",
+          "label": "0x fee"
+        }
+      ]
+    }
+  ],
+  "readOnlySimulation": {
+    "token": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+    "symbol": "PONS",
+    "side": "buy",
+    "amountEth": "0.0001",
+    "chainId": 4663,
+    "gasEstimate": "209092",
+    "passed": true,
+    "broadcast": false
+  }
+}

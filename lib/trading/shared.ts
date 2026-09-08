@@ -1,4 +1,4 @@
-import { decodeFunctionData, defineChain, isAddress, parseAbi, parseUnits, type Address, type Hex } from "viem";
+import { decodeFunctionData, defineChain, isAddress, parseAbi, parseUnits, zeroAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 
 export const robinhood = defineChain({
@@ -56,7 +56,9 @@ export function validateExecution(quote: TradeQuote, account: Address, settlers:
   if (sameAddress(tx.to, ALLOWANCE_HOLDER)) {
     const call = decodeFunctionData({ abi: holderAbi, data });
     const [operator, token, amount, destination, nested] = call.args;
-    if (!sameAddress(operator, destination) || !sameAddress(token, quote.sellToken) || amount !== BigInt(quote.sellAmount)) throw new Error("Allowance payload does not match the trade.");
+    // AllowanceHolder represents native ETH with zero; the HTTP API uses 0xeeee.
+    const inputMatches = sameAddress(token, quote.sellToken) || (nativeIn && sameAddress(token, zeroAddress));
+    if (!sameAddress(operator, destination) || !inputMatches || amount !== BigInt(quote.sellAmount)) throw new Error("Allowance payload does not match the trade.");
     target = destination; data = nested;
   } else if (!nativeIn) throw new Error("Token swaps must use AllowanceHolder.");
   if (!settlers.some((s) => sameAddress(s, target))) throw new Error("Unrecognized or paused settlement contract.");
