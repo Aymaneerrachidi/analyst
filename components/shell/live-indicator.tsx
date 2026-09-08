@@ -38,11 +38,12 @@ export function LiveIndicator({
 }) {
   const { data } = useFreshness(initial);
   const stream = useTradeStream();
-  const status = stream.enabled ? stream.status : data?.status ?? "offline";
-  const meta = LABELS[status];
+  const connecting = stream.enabled && stream.status === "connecting";
+  const status = stream.enabled && !connecting ? stream.status : data?.status ?? "offline";
+  const meta = connecting ? LABELS.offline : LABELS[status];
   const ageSec = data?.ageMs !== null && data?.ageMs !== undefined ? Math.round(data.ageMs / 1000) : null;
   const tip =
-    stream.enabled ? (status === "live" ? "Connected to KOLHOOD's live trade stream. Trades appear as the source broadcasts them; analytics sync separately." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
+    connecting ? `Last stored sync: ${data?.lastSyncAt ?? "not yet available"}. Establishing the live connection.` : stream.enabled ? (status === "live" ? "Connected to KOLHOOD's live trade stream. Trades appear as the source broadcasts them; analytics sync separately." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
       ? `Feed synced ${ageSec ?? 0}s ago from ${data?.provider ?? "provider"}.`
       : status === "delayed"
         ? `Last successful sync was ${ageSec ?? "?"}s ago. Data may be stale.`
@@ -52,7 +53,7 @@ export function LiveIndicator({
     <Tip content={tip}>
       <span className={cn("inline-flex items-center gap-2 font-semibold tracking-[0.12em] tnum", size === "sm" ? "text-[11px]" : "text-xs", meta.textClass, className)}>
         <span className={cn("inline-block h-1.5 w-1.5 rounded-full", meta.dot, meta.animate && "animate-live-dot")} aria-hidden />
-        <span>{meta.text}</span>
+        <span>{connecting ? data?.lastSyncAt ? `LAST SYNC ${ageSec ?? 0}s AGO` : "AWAITING FIRST SYNC" : meta.text}</span>
         {showTracked && data && data.trackedTraders > 0 && (
           <span className="font-medium tracking-[0.12em] text-muted">· {data.trackedTraders} TRACKED TRADERS</span>
         )}

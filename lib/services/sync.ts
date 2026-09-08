@@ -774,6 +774,12 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
       .returning({ id: dataSourceSyncs.id });
     try {
       const inserted = kind === "full" ? await fullSync(db) : await tradesSync(db);
+      try {
+        const { publishSystemEvent } = await import("@/lib/social/system-events");
+        await publishSystemEvent();
+      } catch {
+        console.error("System event generation failed; market sync continues.");
+      }
       await db
         .update(dataSourceSyncs)
         .set({ status: "ok", finishedAt: new Date(), tradesUpserted: inserted })

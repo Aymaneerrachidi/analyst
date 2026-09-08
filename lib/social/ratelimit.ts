@@ -1,11 +1,11 @@
 import "server-only";
-import { and, count, eq, gt } from "drizzle-orm";
+import { and, count, eq, gt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 
 const { posts, comments, ratings, votes } = schema;
 
-export type LimitedAction = "post" | "comment" | "rating" | "vote";
+export type LimitedAction = "post" | "comment" | "rating" | "vote" | "identity" | "report";
 
 interface Bucket {
   hits: number[];
@@ -18,6 +18,9 @@ const memory: LimiterState = g.__analystLimiter ?? (g.__analystLimiter = { bucke
 function windowFor(action: LimitedAction): { windowMs: number; limit: number } {
   const e = env();
   switch (action) {
+    case "identity":
+    case "report":
+      return { windowMs: 60 * 60_000, limit: 10 };
     case "post":
       return { windowMs: 10 * 60_000, limit: e.RATE_LIMIT_POSTS_PER_10M };
     case "comment":
@@ -27,6 +30,20 @@ function windowFor(action: LimitedAction): { windowMs: number; limit: number } {
     case "vote":
       return { windowMs: 60 * 60_000, limit: e.RATE_LIMIT_VOTES_PER_HOUR };
   }
+}
+
+/** Atomic shared budget: parallel requests and new cookies cannot reset the IP quota. */
+export async function consumeWriteBudget(identity: string, action: LimitedAction, multiplier = 1, now = Date.now()) {
+  const db = await getDb();
+  const { windowMs, limit } = windowFor(action);
+  const bucket = Math.floor(now / windowMs);
+  const key = `rate:${action}:${identity}:${bucket}`;
+  const rows = await db.insert(schema.appMeta).values({ key, value: { count: 1 }, updatedAt: new Date(now) })
+    .onConflictDoUpdate({ target: schema.appMeta.key,
+      set: { value: sql`jsonb_build_object('count', (${schema.appMeta.value}->>'count')::int + 1)`, updatedAt: new Date(now) },
+      setWhere: sql`(${schema.appMeta.value}->>'count')::int < ${limit * multiplier}`,
+    }).returning({ key: schema.appMeta.key });
+  return { ok: rows.length === 1, retryAfterSec: Math.max(1, Math.ceil(((bucket + 1) * windowMs - now) / 1000)), limit: limit * multiplier };
 }
 
 function sweep(now: number): void {

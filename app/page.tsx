@@ -37,7 +37,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const [freshness, stats, trending, topBuys, topTraders, trades, posts] = await Promise.all([
     getFreshness(),
     getOverviewStats(),
-    listTokens({ window: "24h", tab: "trending", limit: 4 }),
+    listTokens({ window: "24h", tab: "trending", category: "memes", limit: 4 }),
     listTokens({ window, tab: "accumulating", limit: 6 }),
     listTraders({ period: "30d", limit: 5 }),
     listTrades({ limit: 6 }),
@@ -53,7 +53,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <section className="grid grid-cols-2 divide-x divide-border border-b border-border md:grid-cols-4" aria-label="Market overview">
         {[['Tracked traders', formatCompact(freshness.trackedTraders)], ['Trades · 24H', formatCompact(stats.trades24h)], ['Tracked buying · 24H', formatUsd(stats.buyUsd24h)], ['Active tokens · 24H', formatCompact(stats.tokensActive24h)]].map(([label,value])=><div key={label} className="p-4"><p className="text-[10px] text-muted">{label}</p><p className="mt-1 text-xl font-medium tnum">{value}</p></div>)}
       </section>
-      <section className="mt-5"><SectionHeader title="Trending now" href="/tokens" hrefLabel="All tokens" /><TrendingStrip tokens={trending} /></section>
+      <section className="mt-5"><SectionHeader title="Trending memes" href="/tokens?category=all" hrefLabel="All tokens" /><TrendingStrip tokens={trending} /></section>
       <div className="section-space grid grid-flow-dense items-start gap-10 xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] xl:gap-7">
         <section className="min-w-0">
           <SectionHeader

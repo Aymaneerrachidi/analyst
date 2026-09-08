@@ -19,7 +19,8 @@ export interface AnalystTraderRef {
 }
 
 export interface AnalystTrader extends AnalystTraderRef {
-  statsSource?: "Defined";
+  statsSource?: "Defined" | "KOLHOOD" | "Analyst tracked";
+  statsPeriod?: RankingPeriod;
   statsUpdatedAt?: string;
   twitterUrl?: string | null;
   pnl24h?: number | null;
@@ -66,6 +67,7 @@ export interface ScoreBreakdown {
 }
 
 export interface AnalystToken extends AnalystTokenRef {
+  category?: "memes" | "stocks" | "stablecoins" | "other";
   fdv?: number | null;
   price?: number | null;
   marketCap?: number | null;

@@ -83,6 +83,16 @@ async function hydratePosts(
       rows.map((r) => r.post.id),
     ),
   ]);
+  const systemIds = rows.filter(r => r.author.id === "g_analyst_system").map(r => `system:${r.post.id}`);
+  if (systemIds.length) {
+    const db = await getDb();
+    const metadata = await db.select().from(schema.appMeta).where(inArray(schema.appMeta.key, systemIds));
+    const byKey = new Map(metadata.map(m => [m.key, m.value as { address: string; symbol: string }]));
+    rows.forEach((r, i) => {
+      const meta = r.author.id === "g_analyst_system" ? byKey.get(`system:${r.post.id}`) : undefined;
+      if (meta) refs[i] = [{ kind: "token", label: `$${meta.symbol}`, href: `/token/${meta.address}` }];
+    });
+  }
   return rows.map(({ post, author }, i) => ({
     id: post.id,
     author,

@@ -33,7 +33,7 @@ test("following persists, custom alerts deduplicate, chart markers open real tra
   await page.locator("main a[href^='/trader/']").first().click();
   await expect(page).toHaveURL(/\/trader\//);
   await expect(page.getByRole("heading", { name: "Entry, exit & holding time" })).toBeVisible();
-  const wallet = page.url().split("/").at(-1)!;
+  const wallet = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByRole("button", { name: /^Follow / }).click();
   await page.reload();
   await expect(page.getByRole("button", { name: /^Unfollow / })).toHaveAttribute("aria-pressed", "true");
@@ -231,7 +231,7 @@ test("older community posts survive polling, new arrivals, pagination failures a
 });
 
 test("guest posts, votes, comments and ratings persist through the API", async ({ page }) => {
-  await page.goto("/tokens");
+  await page.goto("/tokens?category=all");
   const href = await page.locator("main a[href^='/token/']").first().getAttribute("href");
   const token = href!.split("/").at(-1)!;
   const created = await page.request.post("/api/social", { data: { body: `Market observation from browser validation ${Date.now()}` } });

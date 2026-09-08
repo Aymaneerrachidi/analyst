@@ -1,3 +1,6 @@
+import { StatsSource } from "@/components/common/stats-source";
+import { RANKING_PERIODS } from "@/lib/providers/types";
+import { FilterTabs } from "@/components/ui/filter-tabs";
 import { Performance } from "@/components/tracking/performance";
 import { FollowButton } from "@/components/tracking/follow-button";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
@@ -35,11 +38,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 const RANK_LABEL: Record<RankingPeriod, string> = { "24h": "Daily", "7d": "Weekly", "30d": "Monthly", all: "All time" };
 
-export default async function TraderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TraderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ period?: string }> }) {
   const { id } = await params;
   await ensureFresh("trades", 8_000);
   await refreshTraderProfiles([id]);
-  const trader = await getTrader(id);
+  const sp = await searchParams;
+  const period = RANKING_PERIODS.includes(sp.period as RankingPeriod) ? sp.period as RankingPeriod : "30d";
+  const trader = await getTrader(id, period);
   if (!trader) notFound();
   await seedSocialIfEmpty().catch(() => undefined);
   const guest = await getGuest();
@@ -51,9 +56,9 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
     listComments({ targetType: "trader", targetId: trader.id, sort: "top", guestId: guest?.id ?? null }),
   ]);
 
-  const buys = trader.buys ?? 0;
-  const sells = trader.sells ?? 0;
-  const buyShare = buys + sells > 0 ? (buys / (buys + sells)) * 100 : null;
+  const buys = trader.buys;
+  const sells = trader.sells;
+  const buyShare = buys != null && sells != null && buys + sells > 0 ? (buys / (buys + sells)) * 100 : null;
   const bestRank = (Object.entries(ranks) as [RankingPeriod, number][]).sort((a, b) => a[1] - b[1])[0];
 
   return (
@@ -104,37 +109,24 @@ export default async function TraderPage({ params }: { params: Promise<{ id: str
         </div>
       </section>
 
-      {trader.statsSource && <p className="rounded-lg border border-border bg-surface p-3 text-xs leading-relaxed text-secondary">Additional history from <a href={`https://www.defined.fi/trader/${trader.wallet}`} target="_blank" rel="noreferrer" className="text-neon">Defined</a>, captured {trader.statsUpdatedAt?.slice(0, 10)}. Imported history is partial; period rankings and recorded trade totals can differ.</p>}
-      {/* Stats */}
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-medium">Source performance</h2><StatsSource trader={trader} /></div><FilterTabs value={period} options={RANKING_PERIODS.map(p => ({ value: p, label: RANK_LABEL[p], href: `/trader/${trader.id}?period=${p}` }))} ariaLabel="Profile ranking period" /></div>
+      <p className="text-xs text-secondary">These metrics use the same period snapshot as the leaderboard. Recorded-swap calculations below cover partial history and are labeled separately.</p>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricCard label="Net PnL" value={<MoneyDelta value={trader.realizedPnl} />} hint="Realized, all tracked history" />
-        <MetricCard label="24H PnL" value={<MoneyDelta value={trader.pnl24h} />} />
-        <MetricCard label="7D PnL" value={<MoneyDelta value={trader.pnl7d} />} />
-        <MetricCard label="30D PnL" value={<MoneyDelta value={trader.pnl30d} />} hint={trader.roi !== null && trader.roi !== undefined ? `ROI ${formatPct(trader.roi)}` : undefined} />
-        <MetricCard label="Win rate" value={formatPct(trader.winRate, { signed: false, digits: 0 })} hint="Share of profitable sells" />
-        <MetricCard label="Total trades" value={trader.trades ?? "—"} hint={trader.volumeUsd ? `${formatUsd(trader.volumeUsd)} volume` : undefined} />
-        <MetricCard label="Buy / sell" value={buyShare !== null ? `${Math.round(buyShare)}% buys` : "—"}>
-          {buyShare !== null && (
-            <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
-              <div className="bg-neon" style={{ width: `${buyShare}%` }} />
-              <div className="bg-negative" style={{ width: `${100 - buyShare}%` }} />
-            </div>
-          )}
-          <p className="mt-1 text-xs text-muted tnum">
-            <span className="text-neon">{buys}</span> / <span className="text-negative">{sells}</span>
-          </p>
-        </MetricCard>
-        <MetricCard label="Avg trade size" value={formatUsd(trader.avgTradeSize)} hint={trader.bestTradeUsd ? `Best trade ${formatUsd(trader.bestTradeUsd)}` : undefined} />
+        <MetricCard label="Source PnL" value={<MoneyDelta value={trader.realizedPnl} />}><StatsSource trader={trader} /></MetricCard>
+        <MetricCard label="Source win rate" value={formatPct(trader.winRate, { signed: false, digits: 0 })}><StatsSource trader={trader} /></MetricCard>
+        <MetricCard label="Source trades" value={trader.trades ?? "Not supplied"}><StatsSource trader={trader} /></MetricCard>
+        <MetricCard label="Source ROI" value={formatPct(trader.roi)}><StatsSource trader={trader} /></MetricCard>
+        {buys != null && sells != null && <MetricCard label="Source buy / sell" value={`${buys} / ${sells}`} hint={buyShare == null ? undefined : `${Math.round(buyShare)}% buys`}><StatsSource trader={trader} /></MetricCard>}
+        {trader.avgTradeSize != null && <MetricCard label="Source average trade" value={formatUsd(trader.avgTradeSize)}><StatsSource trader={trader} /></MetricCard>}
       </section>
 
       {/* Performance */}
       <section>
-        <SectionHeader eyebrow="Performance" title="Realized PnL" />
+        <SectionHeader eyebrow="Partial recorded history" title="Analyst tracked PnL" />
         <PnlChart
           traderId={trader.id}
           initialSeries={series}
           initialPeriod="30d"
-          periodPnl={{ "24h": trader.pnl24h, "7d": trader.pnl7d, "30d": trader.pnl30d, all: trader.realizedPnl }}
         />
       </section>
 

@@ -84,11 +84,11 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
 }
 
 export function scoreLabel(score: number): string {
-  if (score >= 80) return "Very Bullish";
-  if (score >= 65) return "Bullish";
-  if (score >= 45) return "Neutral";
-  if (score >= 30) return "Bearish";
-  return "Very Bearish";
+  if (score >= 80) return "Very high activity";
+  if (score >= 65) return "High activity";
+  if (score >= 45) return "Moderate activity";
+  if (score >= 30) return "Low activity";
+  return "Very low activity";
 }
 
 export function scoreTone(score: number): "positive" | "neutral" | "negative" {

@@ -43,13 +43,13 @@ export function TokenTable({ tokens, emptyTitle = "No token activity in this win
                 <span className="max-w-[180px] truncate text-xs text-muted" title={t.name}>{t.name !== t.symbol ? t.name : shortAddress(t.address)}</span></span>
               </Link></td>
               <td className={cn(CELL, "text-right tnum")}>
-                {t.price != null ? <><span className="block font-medium">{formatPrice(t.price)}</span>{t.priceChange24h != null && <span className="mt-1 block text-xs"><PctDelta value={t.priceChange24h} /></span>}</> : <span className="text-xs text-muted">Price not indexed</span>}
+                {t.price != null ? <><span className="block font-medium">{formatPrice(t.price)}</span>{t.price != null && t.priceChange24h != null && <span className="mt-1 block text-xs"><PctDelta value={t.priceChange24h} /></span>}</> : <span className="text-xs text-muted">Price not indexed</span>}
               </td>
               <td className={cn(CELL, "text-right tnum")}>
-                {t.marketCap != null || t.fdv != null ? <><span className="block">{formatUsd(t.marketCap ?? t.fdv)}</span><span className="mt-1 block text-xs text-muted">{t.marketCap != null ? "Market cap" : "FDV"}</span></> : <span className="text-xs text-muted">Unverified supply</span>}
+                {t.marketCap != null || t.fdv != null ? <><span className="block">{formatUsd(t.marketCap ?? t.fdv)}</span><span className="mt-1 block text-xs text-muted">{t.marketCap != null ? "On-chain token MC" : "Token FDV"}</span></> : <span className="text-xs text-muted">Unverified supply</span>}
               </td>
               <td className={cn(CELL, "text-right text-secondary tnum")}>{t.volume24h != null ? formatUsd(t.volume24h) : <span className="text-xs text-muted">Not indexed</span>}</td>
-              <td className={cn(CELL, "text-right tnum")}><span className="block">{t.trackedTraders} KOLs</span><span className="mt-1 block whitespace-nowrap text-xs"><span className="text-neon">{t.traderBuys} buys</span><span className="px-1 text-muted">·</span><span className="text-negative">{t.traderSells} sells</span></span></td>
+              <td className={cn(CELL, "text-right tnum")}><span className="block">{t.trackedTraders} {t.trackedTraders === 1 ? "trader" : "traders"}</span><span className="mt-1 block whitespace-nowrap text-xs"><span className="text-neon">{t.traderBuys} {t.traderBuys === 1 ? "buy" : "buys"}</span><span className="px-1 text-muted">·</span><span className="text-negative">{t.traderSells} {t.traderSells === 1 ? "sell" : "sells"}</span></span></td>
               <td className={cn(CELL, "text-right")}><NetFlow token={t} /></td>
               <td className={cn(CELL, "text-right")}><AnalystScoreBadge score={t.score} window={window} /></td>
             </tr>
@@ -60,20 +60,20 @@ export function TokenTable({ tokens, emptyTitle = "No token activity in this win
         <li key={t.address} className="border-b border-border p-4 last:border-b-0">
           <div className="flex items-start justify-between gap-3">
             <Link href={`/token/${t.address}`} className="flex min-w-0 items-center gap-3"><TokenAvatar symbol={t.symbol} address={t.address} image={t.image} />
-              <span className="min-w-0"><span className="block break-all font-semibold">${t.symbol}</span><span className="mt-1 block text-xs text-muted">{t.trackedTraders} KOLs · {t.traderBuys} buys · {t.traderSells} sells</span></span>
+              <span className="min-w-0"><span className="block break-all font-semibold">${t.symbol}</span><span className="mt-1 block text-xs text-muted">{t.trackedTraders} {t.trackedTraders === 1 ? "trader" : "traders"} · {t.traderBuys} {t.traderBuys === 1 ? "buy" : "buys"} · {t.traderSells} {t.traderSells === 1 ? "sell" : "sells"}</span></span>
             </Link><AnalystScoreBadge score={t.score} window={window} />
           </div>
           <div className="mt-4 flex items-end justify-between gap-3 tnum"><div>
-            <span className="block text-xs text-muted">Price</span><span className="mt-1 block text-sm">{t.price != null ? formatPrice(t.price) : "Not indexed"}{t.priceChange24h != null && <span className="ms-2 text-xs"><PctDelta value={t.priceChange24h} /></span>}</span>
-            {(t.marketCap != null || t.fdv != null) && <span className="mt-1 block text-xs text-muted">{t.marketCap != null ? "MC" : "FDV"} {formatUsd(t.marketCap ?? t.fdv)}</span>}
-          </div><div className="text-right"><span className="mb-1 block text-xs text-muted">KOL net flow</span><NetFlow token={t} size="sm" /></div></div>
+            <span className="block text-xs text-muted">Price</span><span className="mt-1 block text-sm">{t.price != null ? formatPrice(t.price) : "Not indexed"}{t.price != null && t.priceChange24h != null && <span className="ms-2 text-xs"><PctDelta value={t.priceChange24h} /></span>}</span>
+            {(t.marketCap != null || t.fdv != null) && <span className="mt-1 block text-xs text-muted">{t.marketCap != null ? "On-chain token MC" : "Token FDV"} {formatUsd(t.marketCap ?? t.fdv)}</span>}
+          </div><div className="text-right"><span className="mb-1 block text-xs text-muted">Tracked trader net flow</span><NetFlow token={t} size="sm" /></div></div>
         </li>
       ))}</ul>
     </div>
   );
 }
 
-/** Homepage "Top KOL buys" module: fewer columns, net flow dominant. */
+/** Homepage "Top Tracked trader buys" module: fewer columns, net flow dominant. */
 export function TopBuysTable({ tokens, window, compact }: { tokens: AnalystToken[]; window: string; compact?: boolean }) {
   if (tokens.length === 0) return <EmptyState title="No tracked buys in this window." />;
   return (
@@ -137,7 +137,7 @@ export function TopBuysTable({ tokens, window, compact }: { tokens: AnalystToken
                 <span className="flex min-w-0 flex-col">
                   <span className="font-medium">${t.symbol}</span>
                   <span className="text-xs text-muted tnum">
-                    <span className="text-neon">{t.traderBuys} buys</span> · <span className="text-negative">{t.traderSells} sells</span>
+                    <span className="text-neon">{t.traderBuys} {t.traderBuys === 1 ? "buy" : "buys"}</span> · <span className="text-negative">{t.traderSells} {t.traderSells === 1 ? "sell" : "sells"}</span>
                     {t.topBuyer && <> · {t.topBuyer.name}</>}
                   </span>
                 </span>

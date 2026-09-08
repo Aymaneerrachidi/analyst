@@ -1,3 +1,4 @@
+import { StatsSource } from "@/components/common/stats-source";
 import { FollowButton } from "@/components/tracking/follow-button";
 import Link from "next/link";
 import { formatCount, formatPct, formatRating, shortAddress } from "@/lib/format";
@@ -32,6 +33,8 @@ function Rating({ value, count }: { value: number | null | undefined; count?: nu
 
 export function TraderTable({ traders, emptyTitle = "No ranked traders for this period yet." }: { traders: AnalystTrader[]; emptyTitle?: string }) {
   if (traders.length === 0) return <EmptyState title={emptyTitle} description="Rankings appear once the data source has synced trades for this window." />;
+  const showRating = traders.some(t => t.communityRating != null);
+  const showBreakdown = traders.some(t => t.buys != null && t.sells != null);
   return (
     <div className="card overflow-hidden">
       <div className="hidden overflow-x-auto md:block">
@@ -41,12 +44,12 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
               <th className={cn(HEAD, "w-14")}>#</th>
               <th className={HEAD}>Trader</th>
               <th className={HEAD}>Follow</th>
-              <th className={HEAD}>Rating</th>
-              <th className={cn(HEAD, "text-right")}>Net PnL</th>
+              {showRating && <th className={HEAD}>Rating</th>}
+              <th className={cn(HEAD, "text-right")}>Source PnL</th>
               <th className={cn(HEAD, "text-right")}>ROI</th>
               <th className={cn(HEAD, "text-right")}>Win rate</th>
               <th className={cn(HEAD, "text-right")}>Trades</th>
-              <th className={cn(HEAD, "text-right")}>B / S</th>
+              {showBreakdown && <th className={cn(HEAD, "text-right")}>B / S</th>}
               <th className={HEAD}>Top token</th>
               <th className={cn(HEAD, "text-right")}>Last active</th>
             </tr>
@@ -60,32 +63,30 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                     <RankCell rank={rank} />
                   </td>
                   <td className={CELL}>
-                    <Link href={`/trader/${t.id}`} className="group inline-flex items-center gap-3">
+                    <Link href={`/trader/${t.id}?period=${t.statsPeriod ?? "30d"}`} className="group inline-flex items-center gap-3">
                       <TraderAvatar name={t.name} id={t.id} avatar={t.avatar} size="md" />
                       <span className="flex flex-col">
                         <span className="font-medium text-primary group-hover:underline">{t.name}</span>
                         <span className="font-mono text-xs text-muted">{shortAddress(t.wallet)}</span>
-                        {t.statsSource && <span className="text-[10px] text-muted" title={`Snapshot captured ${t.statsUpdatedAt}`}>Defined · {t.statsUpdatedAt?.slice(0, 10)}</span>}
+                        <StatsSource trader={t} />
                       </span>
                     </Link>
                   </td>
                   <td className={CELL}><FollowButton trader={t} compact /></td>
-                  <td className={CELL}>
+                  {showRating && <td className={CELL}>
                     <Rating value={t.communityRating} count={t.ratingCount} />
-                  </td>
+                  </td>}
                   <td className={cn(CELL, "text-right font-medium")}>
-                    <MoneyDelta value={t.realizedPnl} />
+                    <MoneyDelta value={t.realizedPnl} /><StatsSource trader={t} />
                   </td>
                   <td className={cn(CELL, "text-right")}>
                     <PctDelta value={t.roi} />
                   </td>
                   <td className={cn(CELL, "text-right tnum")}>{formatPct(t.winRate, { signed: false, digits: 0 })}</td>
                   <td className={cn(CELL, "text-right tnum")}>{t.trades ?? "—"}</td>
-                  <td className={cn(CELL, "text-right tnum")}>
-                    <span className="text-neon">{t.buys ?? "Unavailable"}</span>
-                    <span className="text-muted"> / </span>
-                    <span className="text-negative">{t.sells ?? "Unavailable"}</span>
-                  </td>
+                  {showBreakdown && <td className={cn(CELL, "text-right tnum")}>
+                    {t.buys == null || t.sells == null ? <span className="text-xs text-muted" title="Buy/sell breakdown is not available from this source">Not supplied</span> : <><span className="text-neon">{t.buys}</span><span className="text-muted"> / </span><span className="text-negative">{t.sells}</span></>}
+                  </td>}
                   <td className={CELL}>
                     {t.topToken ? (
                       <Link href={`/token/${t.topToken.address}`} className="group inline-flex items-center gap-2">
@@ -111,24 +112,24 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
           const rank = t.rank ?? i + 1;
           return (
             <li key={t.id} className="border-b border-border last:border-b-0">
-              <Link href={`/trader/${t.id}`} className="flex items-center gap-3 px-4 py-3">
+              <Link href={`/trader/${t.id}?period=${t.statsPeriod ?? "30d"}`} className="flex items-center gap-3 px-4 py-3">
                 <RankCell rank={rank} />
                 <TraderAvatar name={t.name} id={t.id} avatar={t.avatar} size="md" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex items-center gap-2">
                     <span className="truncate font-medium">{t.name}</span>
                     <span className="text-xs text-muted">
-                      <Rating value={t.communityRating} />
+                      {t.communityRating != null && <Rating value={t.communityRating} />}
                     </span>
                   </span>
                   <span className="text-xs text-muted tnum">
-                    {formatPct(t.winRate, { signed: false, digits: 0 })} win · {t.trades ?? 0} trades
+                    {formatPct(t.winRate, { signed: false, digits: 0 })} win · {t.trades == null ? "Trade count not supplied" : `${t.trades} trades`}
                     {t.topToken && <> · ${t.topToken.symbol}</>}
                   </span>
                 </span>
                 <span className="text-right">
                   <MoneyDelta value={t.realizedPnl} className="block text-sm font-medium" />
-                  <PctDelta value={t.roi} className="block text-xs" />
+                  <StatsSource trader={t} /><PctDelta value={t.roi} className="block text-xs" />
                 </span>
               </Link>
               <div className="px-4 pb-3"><FollowButton trader={t} /></div>
@@ -149,18 +150,18 @@ export function TraderMiniList({ traders }: { traders: AnalystTrader[] }) {
         const rank = t.rank ?? i + 1;
         return (
           <li key={t.id}>
-            <Link href={`/trader/${t.id}`} className="flex items-center gap-3 px-4 py-[18px] transition-colors hover:bg-hover">
+            <Link href={`/trader/${t.id}?period=${t.statsPeriod ?? "30d"}`} className="flex items-center gap-3 px-4 py-[18px] transition-colors hover:bg-hover">
               <RankCell rank={rank} />
               <TraderAvatar name={t.name} id={t.id} avatar={t.avatar} size="md" />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{t.name}</span>
                 <span className="text-xs text-muted tnum">
-                  <Rating value={t.communityRating} /> · {formatPct(t.winRate, { signed: false, digits: 0 })} win rate
+                  {t.communityRating != null && <><Rating value={t.communityRating} /> · </>}{t.winRate != null && <>{formatPct(t.winRate, { signed: false, digits: 0 })} win rate</>}
                 </span>
               </span>
               <span className="text-right">
                 <MoneyDelta value={t.realizedPnl} className="block text-sm font-medium" />
-                <span className="block text-[11px] text-muted">30D</span>
+                <StatsSource trader={t} />
               </span>
             </Link>
           </li>

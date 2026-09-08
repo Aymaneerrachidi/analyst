@@ -2,7 +2,7 @@ import "server-only";
 import type { NextResponse } from "next/server";
 import { clientIp, jsonError, rateLimited } from "@/lib/api";
 import { getOrCreateGuest, hashIp, type Guest } from "./guest";
-import { checkCooldown, checkGuestLimit, checkIpLimit, type LimitedAction } from "./ratelimit";
+import { checkCooldown, checkGuestLimit, checkIpLimit, consumeWriteBudget, type LimitedAction } from "./ratelimit";
 import { moderateContent } from "./moderation";
 
 export interface GuardedWrite {
@@ -12,10 +12,18 @@ export interface GuardedWrite {
 
 /** Identity + rate limiting shared by every guest write. */
 export async function guardWrite(req: Request, action: LimitedAction): Promise<{ ok: true; ctx: GuardedWrite } | { ok: false; response: NextResponse }> {
+  const origin = req.headers.get("origin");
+  if (req.headers.get("sec-fetch-site") === "cross-site" || (origin && origin !== new URL(req.url).origin)) {
+    return { ok: false, response: jsonError(403, "Cross-site writes are not allowed.") };
+  }
   const ipHash = hashIp(clientIp(req));
   const ip = checkIpLimit(ipHash, action);
   if (!ip.ok) return { ok: false, response: rateLimited(ip.retryAfterSec) };
+  const shared = await consumeWriteBudget(`ip:${ipHash ?? "unknown"}`, action, 3);
+  if (!shared.ok) return { ok: false, response: rateLimited(shared.retryAfterSec) };
   const guest = await getOrCreateGuest();
+  const reserved = await consumeWriteBudget(`guest:${guest.id}`, action);
+  if (!reserved.ok) return { ok: false, response: rateLimited(reserved.retryAfterSec) };
   const limit = await checkGuestLimit(guest.id, action);
   if (!limit.ok) {
     return { ok: false, response: rateLimited(limit.retryAfterSec, `Limit reached (${limit.limit} per window). Try again later.`) };

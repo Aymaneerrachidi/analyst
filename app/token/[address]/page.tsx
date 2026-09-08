@@ -53,7 +53,10 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
 
   const participants = token.buyers + token.sellers + token.neutral;
   const bullishPct = participants > 0 ? Math.round((token.buyers / participants) * 100) : null;
-  const sentimentLabel = bullishPct === null ? "No activity" : bullishPct >= 60 ? "Bullish" : bullishPct <= 40 ? "Bearish" : "Mixed";
+  // eslint-disable-next-line react-hooks/purity -- Request-time cutoff in this dynamic server component.
+  const chartCutoff = Date.now() - 86_400_000;
+  const chartTrades = trades.filter(t => Date.parse(t.timestamp) >= chartCutoff);
+  const sentimentLabel = bullishPct === null ? "No activity" : bullishPct >= 60 ? "Buy heavy" : bullishPct <= 40 ? "Sell heavy" : "Mixed";
   const hasMarketData = token.price !== null && token.price !== undefined;
 
   return (
@@ -90,14 +93,14 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
 
       {/* Market + flow stats */}
       <section className="grid grid-cols-2 gap-2 md:grid-cols-4 [&>div]:p-3 [&_p]:text-xs">
-        <MetricCard label={token.marketCap != null ? "Market cap" : "Fully diluted value"} value={formatUsd(token.marketCap ?? token.fdv)} />
+        <MetricCard label={token.marketCap != null ? "On-chain token market cap" : "Token fully diluted value"} value={formatUsd(token.marketCap ?? token.fdv)} />
         <MetricCard label="Volume · 24H" value={formatUsd(token.volume24h)} />
-        <MetricCard label={`KOL buys · ${window.toUpperCase()}`} value={<span className="text-neon">{token.traderBuys}</span>} hint={`${formatUsd(token.buyUsd)} bought`} />
-        <MetricCard label={`KOL sells · ${window.toUpperCase()}`} value={<span className="text-negative">{token.traderSells}</span>} hint={`${formatUsd(token.sellUsd)} sold`} />
+        <MetricCard label={`Tracked trader buys · ${window.toUpperCase()}`} value={<span className="text-neon">{token.traderBuys}</span>} hint={`${formatUsd(token.buyUsd)} bought`} />
+        <MetricCard label={`Tracked trader sells · ${window.toUpperCase()}`} value={<span className="text-negative">{token.traderSells}</span>} hint={`${formatUsd(token.sellUsd)} sold`} />
       </section>
 
       {/* Top traders in token */}
-      <TokenChart address={token.address} symbol={token.symbol} />
+      <TokenChart address={token.address} symbol={token.symbol} currentPrice={token.price} initialTrades={chartTrades} />
       <TradePanel key={token.address} address={token.address} symbol={token.symbol} />
 
       <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>
@@ -114,7 +117,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="font-medium">{row.trader.name}</span>
                     <span className="text-xs text-muted tnum">
-                      {row.buys} buys · {row.sells} sells · last <TimeAgo value={row.lastTradeAt} long />
+                      {row.buys} {row.buys === 1 ? "buy" : "buys"} · {row.sells} {row.sells === 1 ? "sell" : "sells"} · last <TimeAgo value={row.lastTradeAt} long />
                     </span>
                   </span>
                   <span className="text-right">
@@ -154,7 +157,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
         <ActivitySignal token={token} />
         <AnalystScoreCard score={token.score} window={window.toUpperCase()} />
         <div className="card p-5">
-          <p className="label-caps">KOL sentiment · {window.toUpperCase()}</p>
+          <p className="label-caps">Tracked trader sentiment · {window.toUpperCase()}</p>
           <div className="mt-2 flex items-end gap-2">
             <span className="text-4xl font-semibold leading-none tracking-tight tnum">{bullishPct === null ? "—" : `${bullishPct}%`}</span>
             <span className="pb-0.5 text-sm font-medium text-secondary">{sentimentLabel}</span>
@@ -174,7 +177,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
             <li className="flex justify-between"><span className="text-negative">{token.sellers} selling</span></li>
           </ul>
           <div className="mt-4 border-t border-border pt-3">
-            <p className="label-caps">KOL net flow</p>
+            <p className="label-caps">Tracked trader net flow</p>
             <div className="mt-1 flex justify-start">
               <NetFlow token={token} size="lg" />
             </div>

@@ -17,6 +17,7 @@ import { TimeAgo } from "@/components/common/time-ago";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { SkeletonLines } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { groupTradeBursts } from "@/lib/trade-bursts";
 
 export function txUrl(explorerBase: string, hash: string | null | undefined): string | null {
   if (!hash) return null;
@@ -41,6 +42,8 @@ const CELL = "px-3 py-2.5 align-middle first:pl-4 last:pr-4";
 export function TradeTable({ trades, explorerBase, hideTrader, hideToken, animateNew = true, compact, emptyTitle = "No trades yet.", emptyDescription }: TableProps) {
   // Rows present at mount never animate; anything that arrives later does (framer applies `initial` once, at row mount).
   const [initialIds] = useState(() => new Set(trades.map((t) => t.id)));
+  const showPrice = !compact && trades.some(t => t.price != null);
+  const showPnl = !compact && trades.some(t => t.side === "SELL" && t.realizedPnl != null);
   const isNewRow = (id: string) => animateNew && !initialIds.has(id);
 
   if (trades.length === 0) return <EmptyState title={emptyTitle} description={emptyDescription} />;
@@ -57,8 +60,8 @@ export function TradeTable({ trades, explorerBase, hideTrader, hideToken, animat
               <th className={cn(HEAD, "w-20")}>Action</th>
               {!hideToken && <th className={HEAD}>Token</th>}
               <th className={cn(HEAD, "text-right")}>Value</th>
-              {!compact && <th className={cn(HEAD, "text-right")}>Price</th>}
-              {!compact && <th className={cn(HEAD, "text-right")}>PnL</th>}
+              {showPrice && <th className={cn(HEAD, "text-right")}>Price</th>}
+              {showPnl && <th className={cn(HEAD, "text-right")}>Tracked PnL</th>}
               <th className={cn(HEAD, "w-14 text-right")}>Tx</th>
             </tr>
           </thead>
@@ -98,8 +101,8 @@ export function TradeTable({ trades, explorerBase, hideTrader, hideToken, animat
                       </td>
                     )}
                     <td className={cn(CELL, "text-right font-medium tnum")}>{formatUsd(t.amountUsd)}</td>
-                    {!compact && <td className={cn(CELL, "text-right text-secondary tnum")}>{formatPrice(t.price)}</td>}
-                    {!compact && (
+                    {showPrice && <td className={cn(CELL, "text-right text-secondary tnum")}>{formatPrice(t.price)}</td>}
+                    {showPnl && (
                       <td className={cn(CELL, "text-right tnum")}>{t.side === "SELL" ? <MoneyDelta value={t.realizedPnl} muted /> : <span className="text-muted">—</span>}</td>
                     )}
                     <td className={cn(CELL, "text-right")}>
@@ -215,6 +218,7 @@ function buildQuery(params: Record<string, string | undefined>, extra: Record<st
 }
 
 export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs = 5_000, explorerBase, hideTrader, hideToken, compact, onFreshness, emptyTitle, emptyDescription, paused = false }: FeedProps) {
+  const [grouped, setGrouped] = useState(true);
   const qc = useQueryClient();
   const stream = useTradeStream();
   const paramsKey = JSON.stringify(params);
@@ -234,6 +238,8 @@ export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs 
     placeholderData: (prev) => prev,
   });
   const trades = list.data ?? [];
+  const bursts = groupTradeBursts(trades);
+  const hasBursts = bursts.some(b => b.trades.length > 1);
   const maxSeq = trades.reduce((m, t) => Math.max(m, t.seq), 0);
 
   useEffect(() => {
@@ -269,7 +275,9 @@ export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs 
       {list.isError && <ErrorState title="Trades couldn’t load." description="Try again to refresh this view." action={<Button onClick={() => void list.refetch()}>Retry trades</Button>} />}
       {poll.isError && !paused && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">Live updates couldn’t refresh. Showing the last loaded trades.<Button size="sm" onClick={() => void poll.refetch()} disabled={poll.isFetching}>Retry updates</Button></div>}
       {list.isLoading ? <SkeletonLines count={5} /> : !list.isError && (
-      <TradeTable
+      <>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted"><span>{trades.length} loaded records</span><button aria-pressed={grouped} onClick={() => setGrouped(v => !v)} className="rounded-lg border border-border px-3 py-2 text-secondary">{grouped ? "Grouped bursts (60s)" : "Raw transactions"}</button></div>
+      {grouped && hasBursts ? <div className="card divide-y divide-border">{bursts.map(b => { const t = b.trades[0]; return <details key={b.id} className="p-3"><summary className="cursor-pointer text-sm leading-6"><span className="font-medium">{t.trader.name}</span> <span className={t.side === "BUY" ? "text-neon" : "text-negative"}>{t.side === "BUY" ? "bought" : "sold"}</span> ${t.token.symbol} <span className="text-secondary">{b.trades.length}× · {b.knownValues ? formatUsd(b.knownUsd) : "Value unavailable"}{b.knownValues === b.trades.length ? " total" : b.knownValues ? " known value" : ""} · <TimeAgo value={t.timestamp} /></span></summary><div className="mt-3"><TradeTable trades={b.trades} explorerBase={explorerBase} hideTrader={hideTrader} hideToken={hideToken} compact={compact} animateNew={false} /></div></details>; })}</div> : <TradeTable
         key={paramsKey}
         trades={trades}
         explorerBase={explorerBase}
@@ -278,7 +286,8 @@ export function LiveTradesFeed({ initialTrades, params = {}, limit = 50, pollMs 
         compact={compact}
         emptyTitle={emptyTitle}
         emptyDescription={emptyDescription}
-      />
+      />}
+      </>
       )}
     </div>
   );

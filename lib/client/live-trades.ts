@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanSymbol } from "@/lib/presentation";
 import type { AnalystTrade, AnalystTrader } from "@/lib/types";
 
 const address = z.string().regex(/^0x[a-fA-F0-9]{40}$/).transform(v => v.toLowerCase());
@@ -18,7 +19,7 @@ export function parseLiveTrade(value: unknown): AnalystTrade | null {
   if (!parsed.success) return null;
   const r = parsed.data;
   const side = r.action.toUpperCase() as "BUY" | "SELL";
-  const symbol = r.token_symbol || r.token_address.slice(0, 8);
+  const symbol = cleanSymbol(r.token_symbol || r.token_address.slice(0, 8));
   return {
     id: `stream:${r.tx_hash.toLowerCase()}:${r.wallet_address}:${r.token_address}:${side}`,
     seq: 0, traderId: r.wallet_address,

@@ -14,6 +14,8 @@ import { analyzePerformance } from "../lib/performance";
 import { groupMarkers, executionPrice } from "../lib/chart-markers";
 import { emptyTracking, evaluateAlerts, matchesAlert, parseTracking, type AlertRule } from "../lib/client/tracking-model";
 import { activitySignal } from "../lib/activity-signal";
+import { groupTradeBursts } from "../lib/trade-bursts";
+import { cleanSymbol, assetCategory } from "../lib/presentation";
 import type { AnalystTrade, AnalystToken, TokenChartData } from "../lib/types";
 
 test("empty provider responses retain only previously observed prices inside the requested window", () => {
@@ -294,7 +296,8 @@ test("profile history fills token activity without duplicating global-feed trans
     const trader = await getTrader(wallet);
     assert.equal(trader?.lastActive, timestamp);
     assert.equal(trader?.trades, 2);
-    assert.equal(trader?.winRate, 100);
+    // The period leaderboard omits win rate: never substitute the lifetime profile summary.
+    assert.equal(trader?.winRate, null);
     assert.equal(trader?.avatar, "https://kolhood.io/avatars/history.png");
   } finally { globalThis.fetch = fetchBefore; }
 });
@@ -368,8 +371,55 @@ test("Defined replay is idempotent and never invents all-time rankings or replac
   assert.equal(found.length, 1);
   assert.equal(found[0].statsSource, 'Defined');
   assert.equal(found[0].buys, null);
+  const { getTrader } = await import('../lib/services/intelligence');
+  const profile = await getTrader(wallet, '30d');
+  for (const key of ['realizedPnl', 'winRate', 'trades', 'buys', 'sells', 'roi', 'statsSource', 'statsPeriod'] as const) assert.equal(profile?.[key], found[0][key], key);
+  assert.equal((await getTrader(wallet, '24h'))?.realizedPnl, null);
   await db.update(schema.traders).set({ name: 'Preferred identity' }).where(eq(schema.traders.id, wallet));
   await importDefinedSnapshot(envelope, []);
   const [identity] = await db.select().from(schema.traders).where(eq(schema.traders.id, wallet));
   assert.equal(identity.name, 'Preferred identity');
+});
+
+test("bursts preserve direction, the 60-second boundary and unknown values", () => {
+  const rows = [trackingTrade({ id: 'a' }), trackingTrade({ id: 'b', amountUsd: null, timestamp: new Date(940_000).toISOString() }), trackingTrade({ id: 'c', timestamp: new Date(939_999).toISOString() }), trackingTrade({ id: 'sell', side: 'SELL' })];
+  const bursts = groupTradeBursts(rows);
+  assert.equal(bursts.length, 3);
+  const grouped = bursts.find(b => b.trades.length === 2)!;
+  assert.equal(grouped.knownUsd, 100); assert.equal(grouped.knownValues, 1);
+  assert.deepEqual(bursts.flatMap(b => b.trades.map(t => t.id)).sort(), rows.map(t => t.id).sort());
+  assert.equal(cleanSymbol('$$ROBBIE'), 'ROBBIE');
+  assert.equal(assetCategory('$USDG'), 'stablecoins');
+  assert.equal(assetCategory('NVDA'), 'stocks');
+  assert.equal(assetCategory('unknown'), 'other');
+});
+
+test("shared write budgets reject concurrent excess and isolate action/window", async () => {
+  const { consumeWriteBudget } = await import('../lib/social/ratelimit');
+  const now = 1_000_000;
+  const attempts = await Promise.all(Array.from({ length: 15 }, () => consumeWriteBudget('test-ip', 'identity', 1, now)));
+  assert.equal(attempts.filter(a => a.ok).length, 10);
+  assert.equal((await consumeWriteBudget('test-ip', 'identity', 1, now)).ok, false);
+  assert.equal((await consumeWriteBudget('test-ip', 'report', 1, now)).ok, true);
+  assert.equal((await consumeWriteBudget('test-ip', 'identity', 1, now + 3_600_000)).ok, true);
+});
+
+test("system activity threads use complete recorded values, exact contracts and replay deduplication", async () => {
+  const address = '0x' + '9'.repeat(40);
+  const end = Math.floor(Date.now() / 1_800_000) * 1_800_000;
+  await db.insert(schema.tokens).values({ address, symbol: '$EVENT', name: 'Event fixture' });
+  for (let i = 0; i < 3; i++) {
+    const wallet = '0x' + String(i + 1).repeat(40);
+    await db.insert(schema.traders).values({ id: wallet, wallet, name: `Event ${i}`, handle: `event${i}` }).onConflictDoNothing();
+    await db.insert(schema.trades).values({ id: `event-test-${i}`, traderId: wallet, tokenAddress: address, side: 'BUY', amountUsd: 500, timestamp: new Date(end - 1000) });
+  }
+  const { publishSystemEvent } = await import('../lib/social/system-events');
+  const { getPost } = await import('../lib/social/posts');
+  assert.equal(await publishSystemEvent(end + 1000), 1);
+  assert.equal(await publishSystemEvent(end + 2000), 0);
+  const post = await getPost(`event_${end}`, null);
+  assert.equal(post?.author.id, 'g_analyst_system');
+  assert.match(post!.body, /\$1,500/);
+  assert.equal(post?.refs[0].href, `/token/${address}`);
+  assert.equal(post?.score, 0);
 });

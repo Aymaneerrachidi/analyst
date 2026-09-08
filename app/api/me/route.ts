@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonError, noStore, parseJson } from "@/lib/api";
-import { getGuest, getOrCreateGuest, updateDisplayName, validateDisplayName } from "@/lib/social/guest";
+import { getGuest, updateDisplayName, validateDisplayName } from "@/lib/social/guest";
+import { guardWrite } from "@/lib/social/write-guard";
 
 export async function GET() {
   const guest = await getGuest();
@@ -15,7 +16,9 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.response;
   const valid = validateDisplayName(parsed.data.displayName);
   if (!valid.ok) return jsonError(422, valid.error);
-  const guest = await getOrCreateGuest();
+  const guard = await guardWrite(req, "identity");
+  if (!guard.ok) return guard.response;
+  const { guest } = guard.ctx;
   await updateDisplayName(guest.id, valid.name);
   return NextResponse.json({ guest: { id: guest.id, displayName: valid.name } }, noStore);
 }

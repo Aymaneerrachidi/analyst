@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     filter: oneOf(searchParam(url, "filter"), FILTERS, "all"),
     limit: intParam(url, "limit", 50, 1, 500),
     query: searchParam(url, "q"),
+    offset: intParam(url, "offset", 0, 0, 10000),
   });
   return NextResponse.json({ traders }, noStore);
 }

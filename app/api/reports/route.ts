@@ -14,7 +14,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   const parsed = await parseJson(req, schema);
   if (!parsed.ok) return parsed.response;
-  const guard = await guardWrite(req, "vote");
+  const guard = await guardWrite(req, "report");
   if (!guard.ok) return guard.response;
   const result = await fileReport({ guestId: guard.ctx.guest.id, ...parsed.data });
   if (result === "missing") return jsonError(404, "Nothing to report.");

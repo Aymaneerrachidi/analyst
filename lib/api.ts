@@ -13,7 +13,21 @@ export function rateLimited(retryAfterSec: number, message = "Too many requests.
 export async function parseJson<T>(req: Request, schema: ZodType<T>): Promise<{ ok: true; data: T } | { ok: false; response: NextResponse }> {
   let raw: unknown;
   try {
-    raw = await req.json();
+    const maxBytes = 64 * 1024;
+    if (Number(req.headers.get("content-length")) > maxBytes) return { ok: false, response: jsonError(413, "Request body too large.") };
+    const reader = req.body?.getReader();
+    if (!reader) return { ok: false, response: jsonError(400, "Missing JSON body.") };
+    let length = 0;
+    let body = "";
+    const decoder = new TextDecoder();
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      length += chunk.value.byteLength;
+      if (length > maxBytes) { await reader.cancel(); return { ok: false, response: jsonError(413, "Request body too large.") }; }
+      body += decoder.decode(chunk.value, { stream: true });
+    }
+    raw = JSON.parse(body + decoder.decode());
   } catch {
     return { ok: false, response: jsonError(400, "Invalid JSON body.") };
   }

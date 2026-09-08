@@ -53,6 +53,7 @@ export function PostCard({ post, onDeleted, standalone }: { post: SocialPost; on
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
             <span className="font-medium text-primary">{post.author.displayName}</span>
+            {post.author.id === "g_analyst_system" && <span className="rounded border border-neon/30 px-1.5 text-[10px] text-neon">SYSTEM · RECORDED ACTIVITY</span>}
             {post.mine && <span className="rounded border border-border px-1 text-[10px] text-muted">you</span>}
             <TimeAgo value={post.createdAt} className="text-muted" />
           </div>

@@ -12,17 +12,18 @@ export const metadata: Metadata = { title: "Top Traders" };
 const PERIOD_LABELS: Record<RankingPeriod, string> = { "24h": "Daily", "7d": "Weekly", "30d": "Monthly", all: "All time" };
 const FILTERS: { value: TraderFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "memecoins", label: "Memecoins" },
+  { value: "memecoins", label: "Token history" },
   { value: "volume", label: "High volume" },
   { value: "active", label: "Most active" },
   { value: "winrate", label: "Best win rate" },
 ];
 
-function href(period: RankingPeriod, filter: TraderFilter, q?: string): string {
+function href(period: RankingPeriod, filter: TraderFilter, q?: string, page = 1): string {
   const qs = new URLSearchParams();
   if (period !== "30d") qs.set("period", period);
   if (filter !== "all") qs.set("filter", filter);
   if (q) qs.set("q", q);
+  if (page > 1) qs.set("page", String(page));
   const s = qs.toString();
   return s ? `/traders?${s}` : "/traders";
 }
@@ -33,8 +34,10 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
   const filter = FILTERS.some((f) => f.value === sp.filter) ? (sp.filter as TraderFilter) : "all";
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 40) : "";
 
+  const page = Math.min(200, Math.max(1, Math.floor(Number(sp.page) || 1)));
   await ensureFresh("trades", 8_000);
-  const traders = await listTraders({ period, filter, limit: 500, query: q });
+  const rows = await listTraders({ period, filter, limit: 26, offset: (page - 1) * 25, query: q });
+  const traders = rows.slice(0, 25);
 
   return (
     <div>
@@ -58,7 +61,8 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
         )}
       </div>
       <TraderTable traders={traders} emptyTitle={q ? `No traders match “${q}”.` : undefined} />
-      <p className="mt-3 text-xs text-muted">Net PnL is realized PnL over the selected period. Ratings are community sentiment (1–10) and are separate from performance.</p>
+      <nav aria-label="Trader pages" className="mt-5 flex items-center justify-between text-sm">{page > 1 ? <a href={href(period, filter, q, page - 1)} className="rounded-lg border border-border px-4 py-2">Previous</a> : <span />}<span className="text-muted">Page {page}</span>{rows.length > 25 ? <a href={href(period, filter, q, page + 1)} className="rounded-lg border border-border px-4 py-2">Next page</a> : <span />}</nav>
+      <p className="mt-3 text-xs text-muted">Rankings use source-reported PnL for the selected period. Analyst tracked calculations cover partial recorded history and do not replace source rankings.</p>
     </div>
   );
 }

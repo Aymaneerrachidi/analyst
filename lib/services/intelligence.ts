@@ -19,6 +19,7 @@ import { getRatingAggregates } from "@/lib/social/ratings";
 import { fetchMarketQuotes } from "@/lib/providers/market-data";
 import { getProvider } from "@/lib/providers";
 import { cachedLaunchpadToken } from "@/lib/providers/launchpad";
+import { cleanSymbol, assetCategory, STABLE_SYMBOLS, STOCK_SYMBOLS, MEME_SYMBOLS, type AssetCategory } from "@/lib/presentation";
 
 const { traders, tokens, trades, traderSnapshots, tokenSnapshots, traderTokenStats } = schema;
 
@@ -39,7 +40,7 @@ function traderRef(row: {
 }
 
 function tokenRef(row: { address: string; symbol: string; name: string; image: string | null }): AnalystTokenRef {
-  return { address: row.address, symbol: row.symbol, name: row.name, image: row.image };
+  return { address: row.address, symbol: cleanSymbol(row.symbol), name: row.name, image: row.image };
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,7 @@ async function topTokensForTraders(ids: string[]): Promise<Map<string, AnalystTo
 }
 
 export interface ListTradersOptions {
+  offset?: number;
   period?: RankingPeriod;
   filter?: TraderFilter;
   limit?: number;
@@ -153,13 +155,13 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
   let order: SQL;
   switch (filter) {
     case "volume":
-      order = desc(sql`coalesce(${traderSnapshots.volumeUsd}, ${traders.volumeUsd}, 0)`);
+      order = desc(sql`${traderSnapshots.volumeUsd}`);
       break;
     case "active":
       order = desc(traderSnapshots.trades);
       break;
     case "winrate":
-      order = desc(sql`coalesce(${traderSnapshots.winRate}, ${traders.winRate}, 0)`);
+      order = desc(sql`${traderSnapshots.winRate}`);
       break;
     default:
       order = desc(traderSnapshots.pnl);
@@ -169,10 +171,10 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
     .select({ trader: traders, snap: traderSnapshots })
     .from(traderSnapshots)
     .innerJoin(traders, eq(traderSnapshots.traderId, traders.id))
-    .where(and(eq(traderSnapshots.period, period), filter === "winrate" ? gte(traderSnapshots.trades, 5) : undefined,
+    .where(and(eq(traderSnapshots.period, period), filter === "memecoins" ? sql`exists (select 1 from trader_token_stats tt where tt.trader_id = ${traders.id})` : undefined, filter === "winrate" ? gte(traderSnapshots.trades, 5) : undefined,
       opts.query ? or(ilike(traders.name, `%${opts.query}%`), ilike(traders.handle, `%${opts.query}%`), ilike(traders.wallet, `%${opts.query}%`)) : undefined))
     .orderBy(sql`${order} nulls last`, asc(traders.id))
-    .limit(limit);
+    .limit(limit).offset(Math.max(0, Math.floor(opts.offset ?? 0)));
 
   const ids = rows.map((r) => r.trader.id);
   const sourceRows = ids.length ? await db.select().from(schema.appMeta).where(inArray(schema.appMeta.key, ids.map((id) => `defined:wallet:${id}`))) : [];
@@ -184,58 +186,61 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
     twitterUrl: trader.twitterUrl,
     realizedPnl: snap.pnl,
     roi: snap.roi,
-    winRate: snap.winRate ?? trader.winRate,
+    winRate: snap.winRate,
     trades: snap.trades,
     buys: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? null : snap.buys,
     sells: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? null : snap.sells,
-    avgTradeSize: trader.avgTradeSize,
-    volumeUsd: snap.volumeUsd ?? trader.volumeUsd,
-    bestTradeUsd: snap.bestTradeUsd ?? trader.bestTradeUsd,
+    avgTradeSize: snap.volumeUsd != null && snap.trades > 0 ? snap.volumeUsd / snap.trades : null,
+    volumeUsd: snap.volumeUsd,
+    bestTradeUsd: snap.bestTradeUsd,
     lastActive: trader.lastActiveAt?.toISOString() ?? null,
     topToken: topTokens.get(trader.id) ?? null,
-    rank: filter === "all" ? (snap.rank ?? i + 1) : i + 1,
-    statsSource: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? "Defined" as const : undefined,
-    statsUpdatedAt: sources.get(trader.id)?.updatedAt.toISOString(),
+    rank: filter === "all" ? (snap.rank ?? i + 1 + (opts.offset ?? 0)) : i + 1 + (opts.offset ?? 0),
+    statsSource: sources.get(trader.id)?.updatedAt.getTime() === snap.computedAt.getTime() ? "Defined" as const : getProvider().isMock ? "Analyst tracked" as const : "KOLHOOD" as const,
+    statsPeriod: period,
+    statsUpdatedAt: snap.computedAt.toISOString(),
     communityRating: ratings.get(trader.id)?.average ?? null,
     ratingCount: ratings.get(trader.id)?.count ?? 0,
   }));
 
   if (filter === "memecoins") {
-    // Memecoin focus: traders whose top token is a low-priced, high-supply asset (or unknown price).
+    // Compatibility filter key: only wallets with recorded token history.
     return list.filter((t) => t.topToken !== null);
   }
   return list;
 }
 
-export async function getTrader(id: string): Promise<AnalystTrader | null> {
+export async function getTrader(id: string, period: RankingPeriod = "30d"): Promise<AnalystTrader | null> {
   const db = await getDb();
   const [row] = await db.select().from(traders).where(eq(traders.id, id.toLowerCase())).limit(1);
   if (!row) return null;
   const snaps = await db.select().from(traderSnapshots).where(eq(traderSnapshots.traderId, row.id));
   const byPeriod = new Map(snaps.map((s) => [s.period as RankingPeriod, s]));
   const [topTokens, ratings] = await Promise.all([topTokensForTraders([row.id]), getRatingAggregates("trader", [row.id])]);
-  const all = byPeriod.get("all");
   const [source] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, `defined:wallet:${row.id}`));
+  const selected = byPeriod.get(period);
+  const defined = Boolean(source && selected && source.updatedAt.getTime() === selected.computedAt.getTime());
   return {
     ...traderRef(row),
     twitterUrl: row.twitterUrl,
     pnl24h: byPeriod.get("24h")?.pnl ?? null,
     pnl7d: byPeriod.get("7d")?.pnl ?? null,
     pnl30d: byPeriod.get("30d")?.pnl ?? null,
-    realizedPnl: all?.pnl ?? (source ? null : row.realizedPnl) ?? null,
-    statsSource: source ? "Defined" : undefined,
-    statsUpdatedAt: source?.updatedAt.toISOString(),
-    roi: all?.roi ?? byPeriod.get("30d")?.roi ?? null,
-    winRate: row.winRate ?? all?.winRate ?? null,
-    trades: Math.max(row.totalTrades, all?.trades ?? 0),
-    buys: Math.max(row.buys, all?.buys ?? 0),
-    sells: Math.max(row.sells, all?.sells ?? 0),
-    avgTradeSize: row.avgTradeSize,
-    volumeUsd: row.volumeUsd,
-    bestTradeUsd: row.bestTradeUsd ?? all?.bestTradeUsd ?? null,
+    realizedPnl: selected?.pnl ?? null,
+    statsSource: defined ? "Defined" : getProvider().isMock ? "Analyst tracked" : "KOLHOOD",
+    statsPeriod: period,
+    statsUpdatedAt: selected?.computedAt.toISOString(),
+    roi: selected?.roi ?? null,
+    winRate: selected?.winRate ?? null,
+    trades: selected?.trades ?? null,
+    buys: defined ? null : selected?.buys ?? null,
+    sells: defined ? null : selected?.sells ?? null,
+    avgTradeSize: selected?.volumeUsd != null && selected.trades > 0 ? selected.volumeUsd / selected.trades : null,
+    volumeUsd: selected?.volumeUsd ?? null,
+    bestTradeUsd: selected?.bestTradeUsd ?? null,
     lastActive: row.lastActiveAt?.toISOString() ?? null,
     topToken: topTokens.get(row.id) ?? null,
-    rank: byPeriod.get("30d")?.rank ?? null,
+    rank: selected?.rank ?? null,
     communityRating: ratings.get(row.id)?.average ?? null,
     ratingCount: ratings.get(row.id)?.count ?? 0,
   };
@@ -282,7 +287,7 @@ export async function getTraderPnlSeries(id: string, period: RankingPeriod): Pro
   const rows = await db
     .select({ ts: trades.timestamp, realized: trades.realizedPnl })
     .from(trades)
-    .where(and(eq(trades.traderId, id.toLowerCase()), gt(trades.timestamp, from)))
+    .where(and(eq(trades.traderId, id.toLowerCase()), gt(trades.timestamp, from), eq(trades.side, "SELL"), sql`${trades.realizedPnl} is not null`))
     .orderBy(trades.timestamp);
   if (rows.length === 0) return [];
   const buckets = period === "24h" ? 48 : period === "7d" ? 84 : 60;
@@ -298,7 +303,7 @@ export async function getTraderPnlSeries(id: string, period: RankingPeriod): Pro
       acc += rows[idx].realized ?? 0;
       idx++;
     }
-    series.push({ t: new Date(end).toISOString(), value: Math.round(acc * 100) / 100 });
+    if (idx > 0) series.push({ t: new Date(end).toISOString(), value: Math.round(acc * 100) / 100 });
   }
   return series;
 }
@@ -308,6 +313,7 @@ export async function getTraderPnlSeries(id: string, period: RankingPeriod): Pro
 // ---------------------------------------------------------------------------
 
 export interface ListTokensOptions {
+  category?: AssetCategory;
   offset?: number;
   window?: FlowWindow;
   tab?: TokenTab;
@@ -342,6 +348,10 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
   }
 
   const where: SQL[] = [eq(tokenSnapshots.window, window)];
+  const normalizedSymbol = sql`upper(ltrim(${tokens.symbol}, '$'))`;
+  const categorySql = sql`case when ${normalizedSymbol} in (${sql.join(STABLE_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stablecoins' when ${normalizedSymbol} in (${sql.join(STOCK_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stocks' when ${normalizedSymbol} in (${sql.join(MEME_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'memes' else 'other' end`;
+  if (opts.category && !["all", "new"].includes(opts.category)) where.push(sql`${categorySql} = ${opts.category}`);
+  if (opts.category === "new") where.push(gt(tokens.firstSeenAt, new Date(Date.now() - 86_400_000)));
   if (tab === "distributing") where.push(lt(tokenSnapshots.netFlowUsd, 0));
   if (tab === "accumulating") where.push(gt(tokenSnapshots.netFlowUsd, 0));
   if (opts.query) {
@@ -401,6 +411,7 @@ function mapToken(
 ): AnalystToken {
   return {
     ...tokenRef(token),
+    category: assetCategory(token.symbol),
     price: token.price,
     marketCap: token.marketCap,
     fdv: token.fdv,
