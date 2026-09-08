@@ -204,8 +204,8 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
         <div className="rounded-lg border border-border bg-black/20 p-3">
           <label htmlFor="trade-amount" className="text-xs text-secondary">You pay</label>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <input id="trade-amount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={amount} disabled={locked} onChange={(e) => { invalidate(); setAmount(e.target.value); }} className="w-full min-w-0 bg-transparent font-mono text-2xl outline-none focus-visible:ring-1 focus-visible:ring-neon" />
-            <span className="max-w-28 truncate text-sm font-semibold" title={inputSymbol}>{inputSymbol}</span>
+            <input id="trade-amount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={amount} disabled={locked} onChange={(e) => { invalidate(); setAmount(e.target.value); }} className="w-0 min-w-0 flex-1 bg-transparent font-mono text-2xl outline-none focus-visible:ring-1 focus-visible:ring-neon" />
+            <span className="max-w-28 shrink-0 truncate text-sm font-semibold" title={inputSymbol}>{inputSymbol}</span>
           </div>
           <div className="mt-2 flex justify-between gap-2 text-xs text-muted">
             <span>{sell?.balance !== undefined ? `Balance ${amountText(sell.balance, sell.decimals)}` : account ? "Balance unavailable" : "Connect to see balance"}</span>
