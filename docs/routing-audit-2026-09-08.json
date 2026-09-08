@@ -1,0 +1,532 @@
+{
+  "capturedAt": "2026-09-07T23:02:29.205Z",
+  "chainId": 4663,
+  "methodology": "Recent unique tokens from ANALYST feed; quote buys with 0.01 ETH and reverse sells of quoted net output. Quote availability only; no wallet simulation or transaction submission. Sample is not the chain's entire token universe.",
+  "zeroEx": {
+    "status": 401,
+    "sources": null,
+    "note": "Our own API key is required; executable coverage remains unverified."
+  },
+  "results": [
+    {
+      "address": "0x23d03dc1d017991dd32c3e25709900cd66b971eb",
+      "symbol": "PO₄³",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 4722,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "8918941406418023308520195",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 2689,
+        "quoted": true,
+        "amountIn": "8918941406418023308520195",
+        "netOut": "8687316344701056",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0xf5f5f51c4ab83c303c4fad5b6a0838e106ef1e18",
+      "symbol": "CONCERN",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 4720,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "267731353209067643225880",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.25%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 2685,
+        "quoted": true,
+        "amountIn": "267731353209067643225880",
+        "netOut": "10616503646863030",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0xedd3132fb9ac24438e066b767e16638e22236036",
+      "symbol": "PAWN",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 3753,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0x3798b92cfceb29fd9d9156ee004ee2e1ecb43cd1",
+      "symbol": "INSIDER",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 3750,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0x1f4fb9dcf9f526de4da99be5c551c8d5d6630ea1",
+      "symbol": "PONLIX",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 3576,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0xdc4dd8839f02f2242e9552fe4652635fb7f95cc6",
+      "symbol": "FIG",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 3575,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "993900197346222881055429",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.2%",
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 2514,
+        "quoted": true,
+        "amountIn": "993900197346222881055429",
+        "netOut": "9801503410081718",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%",
+          "Uni v4 5%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0xe84f3503e873389cd11f51dd69efb7085d65e18e",
+      "symbol": "OUTDAY",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1824,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "877057846603365726356990",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 3988,
+        "quoted": true,
+        "amountIn": "877057846603365726356990",
+        "netOut": "8809088917991843",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0x8e6633487182c3a9154c525aae90c3340148d33d",
+      "symbol": "PROPHOOD",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 1311,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0x51babd632adef017d57beedcf130b03d8cd219d7",
+      "symbol": "TYGR",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 1430,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0x7679e8f99782d5c0a555e256fab9b79909083ec7",
+      "symbol": "MOON",
+      "provider": "umbra",
+      "buy": {
+        "status": 400,
+        "ms": 2830,
+        "quoted": false,
+        "amountIn": "10000000000000000",
+        "netOut": null,
+        "feeBps": null,
+        "venues": [],
+        "verification": null,
+        "error": "no route found for this pair with liquidity"
+      },
+      "sell": null
+    },
+    {
+      "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+      "symbol": "MSFT",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 797,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "52712689898295484",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.09%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": true,
+          "taxBps": 189
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 493,
+        "quoted": true,
+        "amountIn": "52712689898295484",
+        "netOut": "10621330025214370",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0xad25ac6c84d497db898fa1e8387bf6af3532a1c4",
+      "symbol": "BABA",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 939,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "238154505245960086",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.1%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 370,
+        "quoted": true,
+        "amountIn": "238154505245960086",
+        "netOut": "10718029447328881",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 0.1%",
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+      "symbol": "SPCX",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 2136,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "174372504179393456",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": true,
+          "taxBps": 189
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 417,
+        "quoted": true,
+        "amountIn": "174372504179393456",
+        "netOut": "11138027030602712",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+      "symbol": "GME",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 2084,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "1321570175899327812",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn",
+          "Uni v4 0.3%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": true,
+          "taxBps": 488
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 412,
+        "quoted": true,
+        "amountIn": "1321570175899327812",
+        "netOut": "10307750053893031",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0xfb5b5778d45ae47f15323fb59b666c655174a79c",
+      "symbol": "HOODON",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1113,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "196741782027546171",
+        "feeBps": 100,
+        "venues": [
+          "Uni v3 0.01%",
+          "Uni v3 0.3%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 513,
+        "quoted": true,
+        "amountIn": "196741782027546171",
+        "netOut": "9740110352823789",
+        "feeBps": 100,
+        "venues": [
+          "Uni v3 0.3%",
+          "Uni v3 0.01%"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    },
+    {
+      "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+      "symbol": "DJT",
+      "provider": "umbra",
+      "buy": {
+        "status": 200,
+        "ms": 1018,
+        "quoted": true,
+        "amountIn": "10000000000000000",
+        "netOut": "2962344264554714225",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      },
+      "sell": {
+        "status": 200,
+        "ms": 487,
+        "quoted": true,
+        "amountIn": "2962344264554714225",
+        "netOut": "10817025129963418",
+        "feeBps": 100,
+        "venues": [
+          "Uni v4 dyn"
+        ],
+        "verification": {
+          "composite": true,
+          "feeOnTransfer": false,
+          "taxBps": 0
+        },
+        "error": null
+      }
+    }
+  ],
+  "summary": {
+    "tokens": 16,
+    "buyQuotes": 10,
+    "bothDirections": 10,
+    "observedVenues": [
+      "Uni v4 0%",
+      "Uni v4 dyn",
+      "Uni v4 0.25%",
+      "Uni v4 0.2%",
+      "Uni v4 5%",
+      "Uni v4 0.09%",
+      "Uni v4 0.1%",
+      "Uni v4 0.3%",
+      "Uni v3 0.01%",
+      "Uni v3 0.3%"
+    ]
+  }
+}

@@ -26,6 +26,7 @@ import { DiscussionThread } from "@/components/social/discussion-thread";
 import { WatchButton } from "@/components/workspace/watchlist";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { TokenChart } from "@/components/tokens/token-chart";
+import { TradePanel } from "@/components/trading/trade-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
 
       {/* Top traders in token */}
       <TokenChart address={token.address} symbol={token.symbol} />
+      <TradePanel key={token.address} address={token.address} symbol={token.symbol} />
 
       <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>
       <section>
