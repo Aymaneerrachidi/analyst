@@ -6,7 +6,7 @@ import { getDb, schema } from "../lib/db";
 import { ChainIndexer } from "../lib/indexer/engine";
 import { CURSOR, readCursor } from "../lib/indexer/store";
 import { v2Config } from "../lib/v2/config";
-import { logEvent } from "../lib/v2/log";
+import { logEvent, errorCode } from "../lib/v2/log";
 import { robinhood } from "../lib/trading/shared";
 
 const config = v2Config();
@@ -54,7 +54,7 @@ async function cycle() {
       failures++;
       nextAttemptAt = Date.now() + Math.min(60_000, config.INDEXER_POLL_MS * 2 ** Math.min(failures, 6));
       // Only a bounded error class is logged; RPC URLs and response bodies can contain credentials.
-      const errorType = error instanceof Error && /^[A-Za-z]{1,64}$/.test(error.name) ? error.name : 'UnknownError';
+      const errorType = errorCode(error);
       logEvent("INDEXER", "cycle_failed", { failures, errorType, retryInMs: nextAttemptAt - Date.now() });
     }
   })().finally(() => { work = undefined; });
