@@ -81,7 +81,8 @@ export async function listTrades(opts: ListTradesOptions = {}): Promise<AnalystT
       .select({ id: traderSnapshots.traderId })
       .from(traderSnapshots)
       .where(and(eq(traderSnapshots.period, "7d"), sql`${traderSnapshots.rank} <= 10`));
-    where.push(inArray(trades.traderId, top));
+    const externalTop = await (await import("./external-rankings")).externalRankings({ period: "7d", limit: 10 });
+    where.push(externalTop === null ? inArray(trades.traderId, top) : inArray(trades.traderId, externalTop.map(t => t.id)));
   }
 
   const rows = await db
@@ -147,6 +148,8 @@ export interface ListTradersOptions {
 }
 
 export async function listTraders(opts: ListTradersOptions = {}): Promise<AnalystTrader[]> {
+  const external = await (await import("./external-rankings")).externalRankings(opts);
+  if (external !== null) return external;
   const db = await getDb();
   const period = opts.period ?? "30d";
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
@@ -211,6 +214,8 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
 }
 
 export async function getTrader(id: string, period: RankingPeriod = "30d"): Promise<AnalystTrader | null> {
+  const external = await (await import("./external-rankings")).externalRankings({ period, query: id.toLowerCase(), limit: 1 });
+  if (external?.[0]?.id === id.toLowerCase()) return external[0];
   const db = await getDb();
   const [row] = await db.select().from(traders).where(eq(traders.id, id.toLowerCase())).limit(1);
   if (!row) return null;
@@ -247,6 +252,8 @@ export async function getTrader(id: string, period: RankingPeriod = "30d"): Prom
 }
 
 export async function getTraderRanks(id: string): Promise<Partial<Record<RankingPeriod, number>>> {
+  const external = await Promise.all((["24h", "7d", "30d"] as const).map(async period => ({ period, rows: await (await import("./external-rankings")).externalRankings({ period, query: id.toLowerCase(), limit: 1 }) })));
+  if (external.some(r => r.rows !== null)) return Object.fromEntries(external.flatMap(r => r.rows?.[0]?.rank ? [[r.period, r.rows[0].rank]] : []));
   const db = await getDb();
   const snaps = await db
     .select({ period: traderSnapshots.period, rank: traderSnapshots.rank })

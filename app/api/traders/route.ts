@@ -16,5 +16,6 @@ export async function GET(req: Request) {
     query: searchParam(url, "q"),
     offset: intParam(url, "offset", 0, 0, 10000),
   });
-  return NextResponse.json({ traders }, noStore);
+  const rankingStatus = await (await import("@/lib/services/external-rankings")).rankingStatus();
+  return NextResponse.json({ traders, rankingStatus }, noStore);
 }
