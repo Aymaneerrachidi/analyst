@@ -37,7 +37,7 @@ export interface MarketQuote {
 }
 
 const num = z.union([z.number(), z.string()]).transform((v) => {
-  const n = typeof v === "number" ? v : Number.parseFloat(v);
+  const n = typeof v === "number" ? v : (v.trim() ? Number(v) : NaN);
   return Number.isFinite(n) ? n : null;
 });
 
@@ -55,7 +55,7 @@ const pairSchema = z.object({
   info: z.object({ imageUrl: z.string().nullish() }).nullish(),
 });
 
-const responseSchema = z.array(pairSchema);
+
 
 type CacheEntry = { quote: MarketQuote | null; at: number; launchpad?: boolean };
 const g = globalThis as unknown as { __analystMarketCache?: Map<string, CacheEntry> };
@@ -72,25 +72,35 @@ async function fetchBatch(addresses: string[]): Promise<Map<string, MarketQuote>
   const url = `${v2Config().DEXSCREENER_BASE_URL.replace(/\/$/, "")}/tokens/v1/${encodeURIComponent(chain)}/${addresses.join(",")}`;
   const res = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`Dexscreener ${res.status}`);
-  const parsed = responseSchema.safeParse(await res.json());
+  return normalizeDexPairs(await res.json(), addresses, chain);
+}
+
+/** Only exact chain/address matches; a malformed pool cannot discard other valid pools. */
+export function normalizeDexPairs(payload: unknown, addresses: string[], chain: string): Map<string, MarketQuote> {
+  if (!Array.isArray(payload)) throw new Error("Invalid Dexscreener response");
   const out = new Map<string, MarketQuote>();
-  if (!parsed.success) return out;
-  for (const pair of parsed.data) {
+  const wanted = new Set(addresses.map(address => address.toLowerCase()));
+  const positive = (value: number | null | undefined) => value != null && value > 0 ? value : null;
+  const nonnegative = (value: number | null | undefined) => value != null && value >= 0 ? value : null;
+  for (const raw of payload) {
+    const parsed = pairSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const pair = parsed.data;
     if (pair.chainId !== chain) continue;
     const address = pair.baseToken.address.toLowerCase();
-    if (!addresses.includes(address)) continue; // only base-token quotes
-    const liquidityUsd = pair.liquidity?.usd ?? 0;
+    if (!wanted.has(address)) continue; // only base-token quotes
+    const liquidityUsd = nonnegative(pair.liquidity?.usd) ?? 0;
     const prev = out.get(address);
     if (prev && prev.liquidityUsd >= liquidityUsd) continue;
     out.set(address, {
       address, source: "Dexscreener", observedAt: new Date().toISOString(),
-      price: pair.priceUsd ?? null,
-      marketCap: pair.marketCap ?? null,
-      fdv: pair.fdv ?? null,
-      volume24h: pair.volume?.h24 ?? null,
-      volume5m: pair.volume?.m5 ?? null,
-      volume1h: pair.volume?.h1 ?? null,
-      volume6h: pair.volume?.h6 ?? null,
+      price: positive(pair.priceUsd),
+      marketCap: nonnegative(pair.marketCap),
+      fdv: nonnegative(pair.fdv),
+      volume24h: nonnegative(pair.volume?.h24),
+      volume5m: nonnegative(pair.volume?.m5),
+      volume1h: nonnegative(pair.volume?.h1),
+      volume6h: nonnegative(pair.volume?.h6),
       priceChange5m: pair.priceChange?.m5 ?? null,
       priceChange1h: pair.priceChange?.h1 ?? null,
       buys5m: pair.txns?.m5?.buys ?? null,
@@ -152,4 +162,11 @@ export async function fetchMarketQuotes(addresses: string[], includeLaunchpad = 
     }
   }
   return result;
+}
+
+/** One bounded public API batch. Throws on failure so callers back off rather than save empty success. */
+export async function fetchDexQuotes(addresses: string[]): Promise<Map<string, MarketQuote>> {
+  const unique = [...new Set(addresses.map(address => address.toLowerCase()))];
+  if (unique.length > 30 || unique.some(address => !/^0x[a-f0-9]{40}$/.test(address))) throw new Error("Invalid Dexscreener batch");
+  return unique.length ? fetchBatch(unique) : new Map();
 }

@@ -7,6 +7,7 @@ import { insertTrades, recomputeDerived } from '../lib/services/sync';
 import { parseStalkTrade, stalkGet, stalkLeaderboard } from '../lib/providers/stalkchain';
 import type { UpstreamTrade } from '../lib/providers/types';
 import { refreshExternalRankings } from '../lib/services/external-rankings';
+import { enrichTrackedTokens } from '../lib/services/token-enrichment';
 
 const missing = [!process.env.DATABASE_URL && 'DATABASE_URL', (process.env.INDEXER_SECRET?.length ?? 0) < 32 && 'INDEXER_SECRET'].filter(Boolean);
 if (process.argv.includes('--check')) { console.log(JSON.stringify({ worker: 'stalkchain', ready: missing.length === 0, missing })); process.exit(missing.length ? 2 : 0); }
@@ -21,6 +22,7 @@ let pending: UpstreamTrade[] = [], cursor: string | null = null, savedCursor: st
 let stage = 'starting';
 let analytics: Promise<void> | undefined;
 let rankings: Promise<void> | undefined, lastRankings = 0;
+let markets: Promise<void> | undefined, nextMarkets = 0;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
 const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
@@ -106,6 +108,13 @@ while (!stopping) {
     stage = 'analytics';
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
     await put('stalkchain-worker', status); broadcast('heartbeat', { upstream: upstream(), ...status });
+    if (!markets && Date.now() >= nextMarkets) {
+      nextMarkets = Date.now() + 60_000;
+      markets = enrichTrackedTokens().then(() => {}).catch(() => {
+        nextMarkets = Date.now() + 300_000;
+        console.error('{"event":"market_enrichment_failed"}');
+      }).finally(() => { markets = undefined; });
+    }
     if (!rankings && Date.now() - lastRankings > 900_000) {
       lastRankings = Date.now();
       rankings = refreshExternalRankings().then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
@@ -118,4 +127,4 @@ while (!stopping) {
   } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
-socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await analytics; process.exit(0);
+socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings]); process.exit(0);
