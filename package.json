@@ -11,7 +11,7 @@
     "test": "node --conditions=react-server --import tsx --test scripts/regression.test.ts",
     "test:trading": "node --import tsx --test scripts/trading.test.ts",
     "test:v2": "node --conditions=react-server --import tsx --test scripts/v2.test.ts",
-    "worker:build": "esbuild worker/index.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/worker.mjs",
+    "worker:build": "esbuild worker/stalkchain.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/worker.mjs",
     "worker:start": "node --conditions=react-server dist/worker.mjs",
     "worker:check": "npm run worker:build && node --conditions=react-server dist/worker.mjs --check",
     "test:e2e": "playwright test",

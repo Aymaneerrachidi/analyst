@@ -8,7 +8,9 @@ import { parseStalkTrade, stalkGet, stalkLeaderboard } from '../lib/providers/st
 import type { UpstreamTrade } from '../lib/providers/types';
 import { refreshExternalRankings } from '../lib/services/external-rankings';
 
-if (!process.env.DATABASE_URL || (process.env.INDEXER_SECRET?.length ?? 0) < 32) throw new Error('Worker configuration missing');
+const missing = [!process.env.DATABASE_URL && 'DATABASE_URL', (process.env.INDEXER_SECRET?.length ?? 0) < 32 && 'INDEXER_SECRET'].filter(Boolean);
+if (process.argv.includes('--check')) { console.log(JSON.stringify({ worker: 'stalkchain', ready: missing.length === 0, missing })); process.exit(missing.length ? 2 : 0); }
+if (missing.length) throw new Error('Worker configuration missing');
 const db = await getDb();
 const put = async (key: string, value: object) => { await db.insert(schema.appMeta).values({ key, value }).onConflictDoUpdate({ target: schema.appMeta.key, set: { value, updatedAt: new Date() } }); };
 const clients = new Set<ServerResponse>();
