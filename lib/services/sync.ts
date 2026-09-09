@@ -640,6 +640,7 @@ async function saveProfile(db: Db, p: UpstreamTraderProfile): Promise<number> {
 
 /** Fetch history on demand for any wallet, including those outside the leaderboard. */
 export async function refreshTraderProfiles(wallets: string[]): Promise<void> {
+  if (process.env.WEBHOOK_FEED_ENABLED === '1') return;
   if (getProvider().name === "chain") return;
   if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== "1") return;
   if (process.env.VERCEL) return; // Scheduled full sync owns profile writes on multiple instances.
@@ -767,6 +768,7 @@ async function tradesSync(db: Db): Promise<number> {
 }
 
 export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
+  if (process.env.WEBHOOK_FEED_ENABLED === '1') return { kind, provider: process.env.LIVE_FEED_SOURCE || 'alchemy', tradesUpserted: 0, durationMs: 0 };
   if (getProvider().name === "chain") throw new Error("Legacy sync disabled: the chain worker owns ingestion");
   if (state.profileRefresh) await state.profileRefresh;
   if (state.inflight) return state.inflight;
@@ -824,6 +826,7 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
 
 /** Runs the first full sync when the database is empty. Safe to call on every request. */
 export async function ensureBootstrapped(): Promise<void> {
+  if (process.env.WEBHOOK_FEED_ENABLED === '1') return;
   if (getProvider().name === "chain") return;
   if (process.env.VERCEL) return;
   if (!state.bootstrapped) {
@@ -851,6 +854,7 @@ export async function ensureBootstrapped(): Promise<void> {
  * without a scheduler; errors are swallowed so reads never fail because upstream hiccuped.
  */
 export async function ensureFresh(kind: "full" | "trades", maxAgeMs: number): Promise<void> {
+  if (process.env.WEBHOOK_FEED_ENABLED === '1') return;
   if (getProvider().name === "chain") return;
   if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') return;
   if (process.env.VERCEL) return; // The external scheduler owns ingestion; reads never bootstrap a full job.
@@ -881,6 +885,7 @@ export async function ensureFresh(kind: "full" | "trades", maxAgeMs: number): Pr
 }
 
 export async function getFreshness(): Promise<Freshness> {
+  if (process.env.WEBHOOK_FEED_ENABLED === '1') return (await import('../indexer/webhook-freshness')).webhookFreshness();
   const db = await getDb();
   const provider = getProvider();
   if (provider.name === "chain") {

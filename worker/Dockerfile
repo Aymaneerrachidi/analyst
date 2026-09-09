@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npx esbuild worker/index.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/worker.mjs
+RUN npx esbuild worker/stalkchain.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/worker.mjs
 
 FROM node:22-alpine
 WORKDIR /app

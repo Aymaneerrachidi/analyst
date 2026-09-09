@@ -8,9 +8,10 @@ import { cleanSymbol, assetCategory } from "@/lib/presentation";
 import { factoryAbi, poolAbi, ponsCurveAbi, ponsV2FactoryAbi } from "./contracts";
 import { logEvent } from '@/lib/v2/log';
 
-export function chainClient() {
+export function chainClient(beforeRequest?: (body: string) => Promise<void>) {
   const config = v2Config();
-  return createPublicClient({ chain: robinhood, transport: http(config.ALCHEMY_RPC_URL || robinhood.rpcUrls.default.http[0], { batch: { batchSize: 10, wait: 20 }, timeout: 15_000, retryCount: 2,
+  return createPublicClient({ chain: robinhood, transport: http(config.ALCHEMY_RPC_URL || robinhood.rpcUrls.default.http[0], { batch: beforeRequest ? false : { batchSize: 10, wait: 20 }, timeout: 15_000, retryCount: beforeRequest ? 0 : 2,
+    onFetchRequest: beforeRequest ? async (_url, init) => { await beforeRequest(String(init?.body ?? '')); } : undefined,
     onFetchResponse: async response => {
       if (response.status !== 429) return;
       const body = (await response.clone().text()).toLowerCase();
