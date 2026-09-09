@@ -6,10 +6,18 @@ import { robinhood } from "@/lib/trading/shared";
 import { v2Config } from "@/lib/v2/config";
 import { cleanSymbol, assetCategory } from "@/lib/presentation";
 import { factoryAbi, poolAbi, ponsCurveAbi, ponsV2FactoryAbi } from "./contracts";
+import { logEvent } from '@/lib/v2/log';
 
 export function chainClient() {
   const config = v2Config();
-  return createPublicClient({ chain: robinhood, transport: http(config.ALCHEMY_RPC_URL || robinhood.rpcUrls.default.http[0], { batch: true, timeout: 15_000, retryCount: 2 }) });
+  return createPublicClient({ chain: robinhood, transport: http(config.ALCHEMY_RPC_URL || robinhood.rpcUrls.default.http[0], { batch: { batchSize: 10, wait: 20 }, timeout: 15_000, retryCount: 2,
+    onResponse: async response => {
+      if (response.status !== 429) return;
+      const body = (await response.clone().text()).toLowerCase();
+      const reason = body.includes('compute') || body.includes('throughput') ? 'compute_capacity' : body.includes('batch') ? 'batch_limit' : 'request_rate';
+      logEvent('RPC', 'rate_limited', { reason });
+    },
+  }) });
 }
 export type ChainClient = ReturnType<typeof chainClient>;
 

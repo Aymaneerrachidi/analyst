@@ -124,6 +124,14 @@ export class ChainIndexer {
       const last = Math.min(head - this.config.INDEXER_CONFIRMATIONS, cursor.blockNumber + this.config.INDEXER_BATCH_BLOCKS);
       const db = await getDb();
       let blocks = 0, swapsCount = 0;
+      const metadata = new Map<string, Awaited<ReturnType<typeof tokenMetadata>>>();
+      const resolveToken = async (address: string) => {
+        const known = metadata.get(address);
+        if (known) return known;
+        const value = await tokenMetadata(this.client, address as Address);
+        metadata.set(address, value);
+        return value;
+      };
       for (let start = cursor.blockNumber + 1; start <= last; start += 10) {
         if (!await this.lease()) throw new Error("Indexer lease lost");
         const end = Math.min(start + 9, last);
@@ -150,6 +158,7 @@ export class ChainIndexer {
         const timestamp = new Date(Number(block.timestamp) * 1000);
         const swaps: (typeof schema.chainSwaps.$inferInsert)[] = [], transfers: (typeof schema.chainTransfers.$inferInsert)[] = [];
         const actors = new Map<string, string>();
+        const prices = new Map<string, number | null>();
         for (const log of uniqueLogs) {
           const identity = { id: canonicalEventId(log), chainId: CHAIN_ID, txHash: log.transactionHash, logIndex: log.logIndex, blockNumber: n, blockHash: block.hash, timestamp };
           const transfer = parseTransfer(log);
@@ -158,7 +167,7 @@ export class ChainIndexer {
           if (!pool) continue;
           const swap = parseSwap(log, pool, [...this.config.usdQuotes, this.config.WRAPPED_NATIVE_ADDRESS ?? zeroAddress]);
           if (!swap) continue;
-          const [token, quote] = await Promise.all([tokenMetadata(this.client, swap.tokenAddress as Address), tokenMetadata(this.client, swap.quoteAddress as Address)]);
+          const [token, quote] = await Promise.all([resolveToken(swap.tokenAddress), resolveToken(swap.quoteAddress)]);
           let wallet = swap.wallet ?? actors.get(log.transactionHash);
           if (!wallet) { wallet = (await this.client.getTransaction({ hash: log.transactionHash })).from.toLowerCase(); actors.set(log.transactionHash, wallet); }
           let attribution = swap.wallet ? swap.recipient === swap.wallet ? 'curve event participant' : 'payer differs from recipient' : 'unverified swap attribution';
@@ -175,9 +184,13 @@ export class ChainIndexer {
             if (delta === expected) attribution = 'receipt-confirmed wallet delta';
           }
           const pricingAddress = swap.quoteAddress === zeroAddress ? this.config.WRAPPED_NATIVE_ADDRESS : swap.quoteAddress;
-          const [observation] = pricingAddress ? await db.select().from(schema.marketObservations).where(and(eq(schema.marketObservations.tokenAddress, pricingAddress), lte(schema.marketObservations.timestamp, timestamp), gte(schema.marketObservations.timestamp, new Date(timestamp.getTime() - 300_000)))).orderBy(desc(schema.marketObservations.timestamp)).limit(1) : [];
+          if (pricingAddress && !prices.has(pricingAddress)) {
+            const [observation] = await db.select({ priceUsd: schema.marketObservations.priceUsd }).from(schema.marketObservations).where(and(eq(schema.marketObservations.tokenAddress, pricingAddress), lte(schema.marketObservations.timestamp, timestamp), gte(schema.marketObservations.timestamp, new Date(timestamp.getTime() - 300_000)))).orderBy(desc(schema.marketObservations.timestamp)).limit(1);
+            prices.set(pricingAddress, observation?.priceUsd ?? null);
+          }
+          const quotePrice = pricingAddress ? prices.get(pricingAddress) : null;
           const amountToken = decimalAmount(swap.amountTokenRaw, token.decimals), amountQuote = decimalAmount(swap.amountQuoteRaw, quote.decimals);
-          const usd = observation?.priceUsd != null ? Number(amountQuote) * observation.priceUsd : null;
+          const usd = quotePrice != null ? Number(amountQuote) * quotePrice : null;
           const usdValue = usd != null && Number.isFinite(usd) && usd >= 0 ? usd : null;
           swaps.push({ ...identity, walletAddress: wallet, tokenAddress: swap.tokenAddress, quoteAddress: swap.quoteAddress, side: swap.side, amountToken, amountQuote, usdValue, executionPrice: usdValue != null && Number(amountToken) > 0 ? usdValue / Number(amountToken) : null, dex: pool.dex, poolAddress: pool.address, attribution });
         }

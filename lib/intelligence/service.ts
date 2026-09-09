@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, lte } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { calculateWalletMetrics, type MeasuredTrade, type MetricPeriod, type WalletIntelligence } from "./metrics";
 
-export async function walletHistory(wallet: string, now = Date.now()): Promise<MeasuredTrade[]> {
+export async function walletHistory(wallet: string, now = Date.now(), enrich = true): Promise<MeasuredTrade[]> {
   const db = await getDb();
   const [indexed, imported] = await Promise.all([
     db.select().from(schema.chainSwaps).where(and(eq(schema.chainSwaps.walletAddress, wallet), lte(schema.chainSwaps.timestamp, new Date(now)))).orderBy(desc(schema.chainSwaps.blockNumber), desc(schema.chainSwaps.logIndex)).limit(100_000),
@@ -16,7 +16,7 @@ export async function walletHistory(wallet: string, now = Date.now()): Promise<M
     rows.push({ id: t.id, token: t.tokenAddress, timestamp: t.timestamp.getTime(), order: t.seq, side: t.side as 'BUY' | 'SELL', quantity: t.tokenAmount, usd: t.amountUsd });
   }
   const addresses = [...new Set(rows.map(t => t.token))];
-  if (!addresses.length) return rows;
+  if (!addresses.length || !enrich) return rows;
   const [profiles, observations] = await Promise.all([
     db.select().from(schema.tokenProfiles).where(inArray(schema.tokenProfiles.address, addresses)),
     db.select().from(schema.marketObservations).where(and(inArray(schema.marketObservations.tokenAddress, addresses), lte(schema.marketObservations.timestamp, new Date(now)))).orderBy(schema.marketObservations.timestamp).limit(100_000),
