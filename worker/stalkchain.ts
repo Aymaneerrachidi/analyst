@@ -16,6 +16,7 @@ let tracked = new Set<string>(), walletIndex = 0, published = 0, lastEventAt = 0
 let stopping = false, flushing = false, dirty = false, lastDerived = 0, failures = 0, lastPoll = 0, lastRoster = 0, lastHistory = 0, nextAttempt = 0;
 let pending: UpstreamTrade[] = [], cursor: string | null = null, savedCursor: string | null = null;
 let stage = 'starting';
+let analytics: Promise<void> | undefined;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
 const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
@@ -99,10 +100,14 @@ while (!stopping) {
     }
     stage = 'persist'; await flush();
     stage = 'analytics';
-    if (dirty && Date.now() - lastDerived > 60_000) { await recomputeDerived(db, { providerOwnsRankings: false }); dirty = false; lastDerived = Date.now(); }
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
     await put('stalkchain-worker', status); broadcast('heartbeat', { upstream: upstream(), ...status });
+    // Historical analytics must never block receipt of the next live trade.
+    if (dirty && !analytics && Date.now() - lastDerived > 300_000) {
+      dirty = false; lastDerived = Date.now();
+      analytics = recomputeDerived(db, { providerOwnsRankings: false }).catch(() => { dirty = true; console.error('{"event":"analytics_failed"}'); }).finally(() => { analytics = undefined; });
+    }
   } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
-socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); process.exit(0);
+socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await analytics; process.exit(0);

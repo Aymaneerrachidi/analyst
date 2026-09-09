@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { AnalystTrade, AnalystTrader } from '@/lib/types';
 import { mergeLiveTrades } from '@/lib/client/live-trades';
-type Stream = { enabled: boolean; status: 'connecting' | 'live' | 'reconnecting'; trades: AnalystTrade[]; traders: Map<string, AnalystTrader> };
+type Stream = { enabled: boolean; status: 'connecting' | 'live' | 'delayed' | 'reconnecting'; trades: AnalystTrade[]; traders: Map<string, AnalystTrader> };
 const StreamContext = createContext<Stream>({ enabled: false, status: 'connecting', trades: [], traders: new Map() });
 export const useTradeStream = () => useContext(StreamContext);
 export function TradeStreamProvider({ enabled, shared = false, children }: { enabled: boolean; shared?: boolean; children: React.ReactNode }) {
@@ -17,7 +17,7 @@ export function TradeStreamProvider({ enabled, shared = false, children }: { ena
     void fetch('/api/traders?period=7d&limit=500', { signal: controller.signal }).then(r => r.ok ? r.json() : null).then(body => { if (!disposed && Array.isArray(body?.traders)) setTraders(new Map(body.traders.map((t: AnalystTrader) => [t.id, t]))); }).catch(() => undefined);
     void snapshot();
     const events = shared ? new EventSource('/api/events') : null;
-    const heartbeat = (event: MessageEvent) => { try { const data = JSON.parse(event.data); lastHeartbeat = Date.now(); setStatus(data.upstream === 'live' ? 'live' : 'reconnecting'); } catch { setStatus('reconnecting'); } };
+    const heartbeat = (event: MessageEvent) => { try { const data = JSON.parse(event.data); lastHeartbeat = Date.now(); setStatus(data.upstream === 'live' ? 'live' : data.upstream === 'delayed' ? 'delayed' : 'reconnecting'); } catch { setStatus('reconnecting'); } };
     events?.addEventListener('status', heartbeat);
     events?.addEventListener('heartbeat', heartbeat);
     events?.addEventListener('trade', (event: MessageEvent) => { try { receive([JSON.parse(event.data)]); } catch { /* Ignore malformed transport frames. */ } });
