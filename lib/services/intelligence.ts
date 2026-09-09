@@ -112,16 +112,14 @@ export async function listTrades(opts: ListTradesOptions = {}): Promise<AnalystT
     timestamp: trade.timestamp.toISOString(),
     txHash: trade.txHash,
   }));
-  if (opts.beforeSeq != null) return imported;
   let wallets = opts.traderId ? [opts.traderId.toLowerCase()] : opts.traderIds?.map(id => id.toLowerCase());
   if (opts.filter === 'top') {
     const ranked = await db.select({ id: traderSnapshots.traderId }).from(traderSnapshots).where(and(eq(traderSnapshots.period, '7d'), sql`${traderSnapshots.rank} <= 10`));
     const top = new Set(ranked.map(r => r.id));
     wallets = wallets ? wallets.filter(id => top.has(id)) : [...top];
   }
-  // Legacy sequence numbers do not identify chain logs. Reconcile the latest
-  // canonical fills on incremental polls; clients deduplicate by transaction/log.
-  const indexed = await indexedTradeSnapshot(limit, { token: opts.tokenAddress, wallets, side: opts.filter === 'buys' ? 'BUY' : opts.filter === 'sells' ? 'SELL' : undefined, minUsd: Math.max(opts.minUsd ?? 0, opts.filter === 'large' ? LARGE_TRADE_USD : 0), query: opts.query?.replace(/^\$/, '') });
+  // Both stores allocate from the same sequence; cursor filters include canonical fills.
+  const indexed = await indexedTradeSnapshot(limit, { afterSeq: opts.afterSeq, beforeSeq: opts.beforeSeq, token: opts.tokenAddress, wallets, side: opts.filter === 'buys' ? 'BUY' : opts.filter === 'sells' ? 'SELL' : undefined, minUsd: Math.max(opts.minUsd ?? 0, opts.filter === 'large' ? LARGE_TRADE_USD : 0), query: opts.query?.replace(/^\$/, '') });
   return mergeLiveTrades(imported, indexed, limit);
 }
 
@@ -225,7 +223,14 @@ export async function listTraders(opts: ListTradersOptions = {}): Promise<Analys
 export async function getTrader(id: string, period: RankingPeriod = "30d"): Promise<AnalystTrader | null> {
   const db = await getDb();
   const [row] = await db.select().from(traders).where(eq(traders.id, id.toLowerCase())).limit(1);
-  if (!row) return null;
+  if (!row) {
+    const [wallet] = await db.select().from(schema.wallets).where(eq(schema.wallets.address, id.toLowerCase())).limit(1);
+    if (!wallet) return null;
+    return { id: wallet.address, wallet: wallet.address, name: wallet.displayName ?? wallet.publicLabel ?? wallet.address, handle: wallet.xHandle ?? wallet.address, avatar: null, twitterUrl: null,
+      pnl24h: null, pnl7d: null, pnl30d: null, realizedPnl: null, statsSource: 'Analyst tracked', statsPeriod: period,
+      roi: null, winRate: null, trades: null, buys: null, sells: null, avgTradeSize: null, volumeUsd: null, bestTradeUsd: null,
+      lastActive: wallet.lastSeen.toISOString(), topToken: null, rank: null, communityRating: null, ratingCount: 0 };
+  }
   const snaps = await db.select().from(traderSnapshots).where(eq(traderSnapshots.traderId, row.id));
   const byPeriod = new Map(snaps.map((s) => [s.period as RankingPeriod, s]));
   const [topTokens, ratings] = await Promise.all([topTokensForTraders([row.id]), getRatingAggregates("trader", [row.id])]);

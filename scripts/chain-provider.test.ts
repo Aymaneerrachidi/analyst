@@ -50,11 +50,15 @@ test('incremental legacy polling reconciles canonical fills without bypassing fi
     blockNumber: 101, blockHash: '0x' + 'e'.repeat(64), timestamp: new Date(), walletAddress: wallet, tokenAddress: token,
     quoteAddress: quote, side: 'BUY', amountToken: '10', amountQuote: '1', usdValue: 100, executionPrice: 10,
     dex: 'test fixture', poolAddress: quote, attribution: 'receipt-confirmed wallet delta' });
-  const rows = await listTrades({ afterSeq: 999999, traderId: wallet });
+  const rows = await listTrades({ afterSeq: 0, traderId: wallet });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].logIndex, 2);
   assert.equal(rows[0].amountUsd, 100);
-  assert.equal((await listTrades({ afterSeq: 999999, filter: 'sells' })).length, 0);
-  assert.equal((await listTrades({ afterSeq: 999999, filter: 'top' })).length, 0);
-  assert.equal((await listTrades({ afterSeq: 999999, traderId: quote })).length, 0);
+  assert.ok(rows[0].seq > 0);
+  assert.equal((await listTrades({ afterSeq: rows[0].seq })).length, 0);
+  assert.equal((await listTrades({ beforeSeq: rows[0].seq + 1 })).length, 1);
+  assert.equal((await listTrades({ beforeSeq: rows[0].seq })).length, 0);
+  assert.equal((await listTrades({ afterSeq: 0, filter: 'sells' })).length, 0);
+  assert.equal((await listTrades({ afterSeq: 0, filter: 'top' })).length, 0);
+  assert.equal((await listTrades({ afterSeq: 0, traderId: quote })).length, 0);
 });

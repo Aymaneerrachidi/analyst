@@ -72,8 +72,8 @@ export class ChainIndexer {
     const unique = [...new Set(addresses.map(a => a.toLowerCase()))];
     // Bound each request to ten blocks, including both endpoints.
     if (toBlock < blockNumber || toBlock - blockNumber >= BigInt(10)) throw new Error("Invalid log range");
-    for (let i = 0; i < unique.length; i += 100) {
-      const logs = await this.client.getLogs({ address: unique.slice(i, i + 100) as Address[], fromBlock: blockNumber, toBlock });
+    for (let i = 0; i < unique.length; i += 500) {
+      const logs = await this.client.getLogs({ address: unique.slice(i, i + 500) as Address[], fromBlock: blockNumber, toBlock });
       for (const log of logs) {
         if (log.removed || log.blockHash == null || log.blockNumber == null || log.logIndex == null || log.transactionHash == null) throw new Error("Incomplete confirmed log response");
         out.push({ address: log.address.toLowerCase(), topics: log.topics, data: log.data, logIndex: log.logIndex, transactionHash: log.transactionHash, blockHash: log.blockHash, blockNumber: log.blockNumber });

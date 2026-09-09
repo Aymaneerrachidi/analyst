@@ -249,7 +249,7 @@ type TradeLite = {
 };
 
 async function loadTrades(db: Db, sinceMs: number): Promise<TradeLite[]> {
-  return db
+  const imported = await db
     .select({
       id: trades.id,
       traderId: trades.traderId,
@@ -263,6 +263,13 @@ async function loadTrades(db: Db, sinceMs: number): Promise<TradeLite[]> {
     .from(trades)
     .where(gt(trades.timestamp, new Date(sinceMs)))
     .orderBy(trades.timestamp);
+  if (getProvider().name !== 'chain') return imported;
+  const indexed = await db.select({ swap: schema.chainSwaps }).from(schema.chainSwaps).innerJoin(traders, eq(traders.id, schema.chainSwaps.walletAddress))
+    .where(and(gt(schema.chainSwaps.timestamp, new Date(sinceMs)), inArray(schema.chainSwaps.attribution, ['receipt-confirmed wallet delta', 'curve event participant'])));
+  const identities = new Set(indexed.map(({swap:t}) => `${t.txHash.toLowerCase()}:${t.walletAddress}:${t.tokenAddress}:${t.side}`));
+  const importedIdentities = identities.size ? await db.select({ id: trades.id, hash: trades.txHash, wallet: trades.traderId, token: trades.tokenAddress, side: trades.side }).from(trades).where(gt(trades.timestamp, new Date(sinceMs))) : [];
+  const replaced = new Set(importedIdentities.filter(t => t.hash && identities.has(`${t.hash.toLowerCase()}:${t.wallet}:${t.token}:${t.side}`)).map(t => t.id));
+  return [...imported.filter(t => !replaced.has(t.id)), ...indexed.map(({swap:t}) => ({id:t.id,traderId:t.walletAddress,tokenAddress:t.tokenAddress,side:t.side,amountUsd:t.usdValue,tokenAmount:Number(t.amountToken),timestamp:t.timestamp,realizedPnl:null}))].sort((a,b) => a.timestamp.getTime()-b.timestamp.getTime());
 }
 
 function toPnlInput(rows: TradeLite[]): PnlInputTrade[] {
@@ -272,7 +279,7 @@ function toPnlInput(rows: TradeLite[]): PnlInputTrade[] {
     tokenAddress: r.tokenAddress,
     side: r.side === "BUY" ? "BUY" : "SELL",
     amountUsd: r.amountUsd ?? 0,
-    tokenAmount: r.tokenAmount,
+    tokenAmount: r.amountUsd == null ? null : r.tokenAmount,
     timestamp: r.timestamp.getTime(),
   }));
 }

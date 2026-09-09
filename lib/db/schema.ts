@@ -12,6 +12,7 @@ import {
   index,
   bigint,
 } from "drizzle-orm/pg-core";
+import { sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Intelligence layer (synced from the data provider)
@@ -343,13 +344,14 @@ export const wallets = pgTable("wallets", {
 });
 
 export const chainSwaps = pgTable("chain_swaps", {
+  seq: bigint('seq', { mode: 'number' }).notNull().default(sql`nextval('trades_seq_seq')`),
   id: text("id").primaryKey(), chainId: integer("chain_id").notNull(), txHash: text("tx_hash").notNull(), logIndex: integer("log_index").notNull(),
   blockNumber: bigint("block_number", { mode: "number" }).notNull(), blockHash: text("block_hash").notNull(), timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   walletAddress: text("wallet_address").notNull(), tokenAddress: text("token_address").notNull(), quoteAddress: text("quote_address").notNull(),
   side: text("side").notNull(), amountToken: text("amount_token").notNull(), amountQuote: text("amount_quote").notNull(),
   usdValue: doublePrecision("usd_value"), executionPrice: doublePrecision("execution_price"), dex: text("dex").notNull(), poolAddress: text("pool_address").notNull(),
   attribution: text("attribution").notNull().default("transaction initiator"),
-}, t => [uniqueIndex("chain_swaps_tx_log_unique").on(t.chainId, t.txHash, t.logIndex), index("chain_swaps_wallet_time").on(t.walletAddress, t.timestamp), index("chain_swaps_token_time").on(t.tokenAddress, t.timestamp)]);
+}, t => [uniqueIndex("chain_swaps_seq_unique").on(t.seq), uniqueIndex("chain_swaps_tx_log_unique").on(t.chainId, t.txHash, t.logIndex), index("chain_swaps_wallet_time").on(t.walletAddress, t.timestamp), index("chain_swaps_token_time").on(t.tokenAddress, t.timestamp)]);
 
 export const chainTransfers = pgTable("chain_transfers", {
   id: text("id").primaryKey(), chainId: integer("chain_id").notNull(), txHash: text("tx_hash").notNull(), logIndex: integer("log_index").notNull(),

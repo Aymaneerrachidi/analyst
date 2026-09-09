@@ -10,6 +10,7 @@ const sourceSchema = z.object({
   INDEXER_CONFIRMATIONS: z.coerce.number().int().min(2).max(100).default(6),
   INDEXER_BATCH_BLOCKS: z.coerce.number().int().min(1).max(500).default(50),
   INDEXER_POLL_MS: z.coerce.number().int().min(1000).max(60_000).default(4000),
+  INDEXER_BLOCK_TRIGGER: z.enum(['poll', 'websocket']).default('poll'),
   INDEXER_PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   INDEXER_URL: optionalUrl, INDEXER_SECRET: z.string().optional(),
   BASE44_AGENT_URL: optionalUrl, BASE44_AGENT_KEY: z.string().optional(), BASE44_AGENT_ID: z.string().optional(),

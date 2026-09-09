@@ -38,7 +38,7 @@ export async function captureMarketObservations() {
       priceChange5m: quote.priceChange5m, priceChange1h: quote.priceChange1h, buys5m: quote.buys5m, sells5m: quote.sells5m,
       completeness: { holders: "unknown", prices: "observed quote", marketCap: quote.marketCap != null ? "reported token valuation" : "unknown" },
     }).onConflictDoNothing();
-    await db.update(schema.tokens).set({ price: quote.price, marketCap: quote.marketCap, fdv: quote.fdv, volume24h: quote.volume24h, priceChange24h: quote.priceChange24h, updatedAt: timestamp }).where(eq(schema.tokens.address, tokenAddress));
+    await db.update(schema.tokens).set({ image: quote.image || sql`${schema.tokens.image}`, price: quote.price, marketCap: quote.marketCap, fdv: quote.fdv, volume24h: quote.volume24h, priceChange24h: quote.priceChange24h, updatedAt: timestamp }).where(eq(schema.tokens.address, tokenAddress));
     count++;
   }
   logEvent("DEXSCREENER", "snapshots_captured", { count });
@@ -65,6 +65,12 @@ export async function runPipeline() {
       return result.tradesUpserted;
     });
     await stage('markets', captureMarketObservations);
+    if (process.env.DATA_PROVIDER === 'chain') await stage('trackedActivity', async () => {
+      const { recomputeDerived } = await import('@/lib/services/sync');
+      // Keep imported leaderboard provenance; the computed leaderboard uses wallet_metrics.
+      await recomputeDerived(db, { providerOwnsRankings: true });
+      return 1;
+    });
     await stage('poolDiscovery', discoverExistingPools);
     await stage('charts', async () => {
       const { getTokenChart } = await import('@/lib/services/token-chart');

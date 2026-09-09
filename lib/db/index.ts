@@ -55,7 +55,7 @@ async function createPglite(): Promise<Db> {
 export function getDb(): Promise<Db> {
   if (holder.db) {
     // Development hot reload preserves the connection, but must still apply new migrations.
-    if (holder.driver && holder.schemaVersion !== 3) {
+    if (holder.driver && holder.schemaVersion !== 4) {
       holder.schemaReady ??= (async () => {
         if (holder.driver === "pglite") {
           const { migrate } = await import("drizzle-orm/pglite/migrator");
@@ -64,7 +64,7 @@ export function getDb(): Promise<Db> {
           const { migrate } = await import("drizzle-orm/postgres-js/migrator");
           await migrate(holder.db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: MIGRATIONS_FOLDER });
         }
-        holder.schemaVersion = 3;
+        holder.schemaVersion = 4;
       })().finally(() => { holder.schemaReady = undefined; });
       return holder.schemaReady.then(() => holder.db!);
     }
@@ -75,7 +75,7 @@ export function getDb(): Promise<Db> {
     holder.ready = (url ? createPostgres(url) : createPglite())
       .then((db) => {
         holder.db = db;
-        holder.schemaVersion = 3;
+        holder.schemaVersion = 4;
         return db;
       })
       .catch((err) => {
