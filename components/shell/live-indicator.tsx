@@ -39,13 +39,13 @@ export function LiveIndicator({
   const { data } = useFreshness(initial);
   const stream = useTradeStream();
   const connecting = stream.enabled && stream.status === "connecting";
-  const status = stream.enabled && !connecting ? stream.status : data?.status ?? "offline";
+  const status = data?.provider !== "kolhood" && data?.status && data.status !== "live" ? data.status : stream.enabled && !connecting ? stream.status : data?.status ?? "offline";
   const newest = Math.max(Date.parse(data?.lastTradeAt ?? '') || 0, ...stream.trades.map(t => Date.parse(t.timestamp) || 0));
-  const quiet = !data?.isMock && data?.checkedAt && newest > 0 && Date.parse(data.checkedAt) - newest > 600000;
+  const quiet = data?.provider === "kolhood" && data?.checkedAt && newest > 0 && Date.parse(data.checkedAt) - newest > 600000;
   const meta = quiet ? LABELS.delayed : connecting ? LABELS.offline : LABELS[status];
   const ageSec = data?.ageMs !== null && data?.ageMs !== undefined ? Math.round(data.ageMs / 1000) : null;
   const tip =
-    quiet ? `No new recorded trades for over ten minutes. Latest stored trade: ${data?.lastTradeAt ?? "unknown"}. A successful sync does not prove fresh source activity.` : connecting ? `Last stored sync: ${data?.lastSyncAt ?? "not yet available"}. Establishing the live connection.` : stream.enabled ? (status === "live" ? "Connected to KOLHOOD's live trade stream. Trades appear as the source broadcasts them; analytics sync separately." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
+    quiet ? `No new recorded trades for over ten minutes. Latest stored trade: ${data?.lastTradeAt ?? "unknown"}. A successful sync does not prove fresh source activity.` : connecting ? `Last stored sync: ${data?.lastSyncAt ?? "not yet available"}. Establishing the live connection.` : stream.enabled ? (status === "live" ? "Connected to the shared trade stream. Trades appear as the source broadcasts them; analytics update separately." : status === "delayed" ? "The source is behind the chain. New records appear as they arrive; timestamps retain the original trade time." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
       ? `Feed synced ${ageSec ?? 0}s ago from ${data?.provider ?? "provider"}.`
       : status === "delayed"
         ? `Last successful sync was ${ageSec ?? "?"}s ago. Data may be stale.`
