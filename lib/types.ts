@@ -96,7 +96,7 @@ export interface Freshness {
   checkedAt?: string;
   lastTradeAt?: string | null;
   tradeAgeMs?: number | null;
-  provider: "mock" | "kolhood";
+  provider: "mock" | "kolhood" | "alchemy" | "stalkchain";
   isMock: boolean;
   lastSyncAt: string | null;
   lastSyncOk: boolean;

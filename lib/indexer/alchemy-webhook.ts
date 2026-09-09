@@ -32,7 +32,7 @@ export function parseAlchemyWebhook(raw: string, webhookId: string, network: str
 
 // A durable inbox, not a trade decoder. Transfer direction alone is not proof
 // of a swap. The consumer must verify receipts before publishing trade rows.
-export async function receiveAlchemyWebhook(request: Request, settings: { signingKey: string; webhookId: string; network: string }, save: (id: string, event: z.infer<typeof envelope>) => Promise<void>) {
+export async function receiveAlchemyWebhook(request: Request, settings: { signingKey: string; webhookId: string; network: string }, save: (id: string, event: z.infer<typeof envelope>, bytes: number) => Promise<void>) {
   if (!settings.signingKey || !settings.webhookId || !settings.network) return Response.json({ error: "Webhook not configured" }, { status: 503 });
   const reader = request.body?.getReader();
   if (!reader) return Response.json({ error: "Missing body" }, { status: 400 });
@@ -50,7 +50,7 @@ export async function receiveAlchemyWebhook(request: Request, settings: { signin
   let event: z.infer<typeof envelope>;
   try { event = parseAlchemyWebhook(raw, settings.webhookId, settings.network); }
   catch { return Response.json({ error: "Invalid webhook event" }, { status: 400 }); }
-  try { await save(`${event.webhookId}:${event.id}`, event); }
+  try { await save(`${event.webhookId}:${event.id}`, event, bytes); }
   catch { return Response.json({ error: "Persistence unavailable" }, { status: 503 }); }
   return Response.json({ accepted: true });
 }
