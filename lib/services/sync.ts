@@ -885,13 +885,18 @@ export async function getFreshness(): Promise<Freshness> {
   const at = lastOk?.finishedAt ?? null;
   const ageMs = at ? Date.now() - at.getTime() : null;
   const status: Freshness["status"] = ageMs === null ? "offline" : ageMs <= LIVE_MAX_AGE_MS ? "live" : "delayed";
+  const [latestTrade] = await db.select({ timestamp: trades.timestamp }).from(trades).orderBy(desc(trades.timestamp)).limit(1);
+  const tradeAgeMs = latestTrade ? Math.max(0, Date.now() - latestTrade.timestamp.getTime()) : null;
   return {
+    checkedAt: new Date().toISOString(),
+    lastTradeAt: latestTrade?.timestamp.toISOString() ?? null,
+    tradeAgeMs,
     provider: provider.name,
     isMock: provider.isMock,
     lastSyncAt: at ? at.toISOString() : null,
     lastSyncOk: last?.status === "ok",
     ageMs,
-    status,
+    status: status === "live" && (tradeAgeMs == null || tradeAgeMs > 600000) ? "delayed" : status,
     trackedTraders: Number(count ?? 0),
   };
 }

@@ -423,3 +423,20 @@ test("system activity threads use complete recorded values, exact contracts and 
   assert.equal(post?.refs[0].href, `/token/${address}`);
   assert.equal(post?.score, 0);
 });
+
+
+test('stored tokens remain listed without a selected-window snapshot, without borrowing older activity', async () => {
+  const { listTokens } = await import('../lib/services/intelligence');
+  const address = `0x${'9876'.repeat(10)}`;
+  await db.insert(schema.tokens).values({ address, symbol: 'AVAILABILITY', name: 'Availability regression fixture', price: 2, lastActivityAt: new Date(Date.now() - 2 * 86400000) });
+  await db.insert(schema.tokenSnapshots).values({ tokenAddress: address, window: '7d', buys: 4, buyUsd: 400, netFlowUsd: 400, score: 65 });
+  const daily = await listTokens({ query: 'AVAILABILITY', window: '24h', category: 'all' });
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].price, 2);
+  assert.equal(daily[0].hasWindowActivity, false);
+  assert.equal(daily[0].traderBuys, 0);
+  assert.equal((await listTokens({ query: 'AVAILABILITY', window: '24h', tab: 'accumulating' })).length, 0);
+  const weekly = await listTokens({ query: 'AVAILABILITY', window: '7d' });
+  assert.equal(weekly[0].hasWindowActivity, true);
+  assert.equal(weekly[0].traderBuys, 4);
+});

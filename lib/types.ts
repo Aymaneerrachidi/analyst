@@ -67,6 +67,7 @@ export interface ScoreBreakdown {
 }
 
 export interface AnalystToken extends AnalystTokenRef {
+  hasWindowActivity?: boolean;
   category?: "memes" | "stocks" | "stablecoins" | "other";
   fdv?: number | null;
   price?: number | null;
@@ -92,6 +93,9 @@ export interface AnalystToken extends AnalystTokenRef {
 }
 
 export interface Freshness {
+  checkedAt?: string;
+  lastTradeAt?: string | null;
+  tradeAgeMs?: number | null;
   provider: "mock" | "kolhood";
   isMock: boolean;
   lastSyncAt: string | null;

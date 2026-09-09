@@ -347,7 +347,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
       order = [desc(sql`${tokenSnapshots.score} * 1.0 + least(${tokenSnapshots.trackedTraders}, 20) * 1.5`), desc(tokenSnapshots.netFlowUsd)];
   }
 
-  const where: SQL[] = [eq(tokenSnapshots.window, window)];
+  const where: SQL[] = [];
   const normalizedSymbol = sql`upper(ltrim(${tokens.symbol}, '$'))`;
   const categorySql = sql`case when ${normalizedSymbol} in (${sql.join(STABLE_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stablecoins' when ${normalizedSymbol} in (${sql.join(STOCK_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stocks' when ${normalizedSymbol} in (${sql.join(MEME_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'memes' else 'other' end`;
   if (opts.category && !["all", "new"].includes(opts.category)) where.push(sql`${categorySql} = ${opts.category}`);
@@ -365,11 +365,11 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
       snap: tokenSnapshots,
       buyer: { id: topBuyer.id, name: topBuyer.name, handle: topBuyer.handle, wallet: topBuyer.wallet, avatar: topBuyer.avatar },
     })
-    .from(tokenSnapshots)
-    .innerJoin(tokens, eq(tokenSnapshots.tokenAddress, tokens.address))
+    .from(tokens)
+    .leftJoin(tokenSnapshots, and(eq(tokenSnapshots.tokenAddress, tokens.address), eq(tokenSnapshots.window, window)))
     .leftJoin(topBuyer, eq(tokenSnapshots.topBuyerId, topBuyer.id))
     .where(and(...where))
-    .orderBy(...order, asc(tokens.address))
+    .orderBy(...order.map(term => sql`${term} nulls last`), desc(tokens.lastActivityAt), asc(tokens.address))
     .limit(limit)
     .offset(Math.max(0, opts.offset ?? 0));
 
@@ -410,6 +410,7 @@ function mapToken(
   rating?: { average: number | null; count: number },
 ): AnalystToken {
   return {
+    hasWindowActivity: Boolean(snap),
     ...tokenRef(token),
     category: assetCategory(token.symbol),
     price: token.price,
