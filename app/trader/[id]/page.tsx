@@ -1,4 +1,5 @@
 import { StatsSource } from "@/components/common/stats-source";
+import { TokenPerformance } from "@/components/traders/token-performance";
 import { TraderIntelligence } from "@/components/intelligence/trader-intelligence";
 import { RANKING_PERIODS } from "@/lib/providers/types";
 import { FilterTabs } from "@/components/ui/filter-tabs";
@@ -133,6 +134,7 @@ export default async function TraderPage({ params, searchParams }: { params: Pro
       </section>
 
       <Performance wallet={trader.wallet} />
+      <TokenPerformance wallet={trader.wallet} period={period} />
 
       <WorkspaceTabs labels={["Token history", "Swaps", "Discussion"]}>
       {/* Positions */}

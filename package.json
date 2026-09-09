@@ -22,7 +22,8 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run test:v2 && npm run test:chain && npm run test:trading && npm run worker:build && npm run build",
     "test:chain": "node --conditions=react-server --import tsx --test scripts/chain-provider.test.ts",
     "worker:stalkchain:build": "esbuild worker/stalkchain.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/stalkchain.mjs",
-    "test:sources": "node --import tsx --test scripts/stalkchain.test.ts scripts/alchemy-webhook.test.ts scripts/webhook-consumer.test.ts scripts/leaderboard-data.test.ts"
+    "test:sources": "node --import tsx --test scripts/stalkchain.test.ts scripts/alchemy-webhook.test.ts scripts/webhook-consumer.test.ts scripts/leaderboard-data.test.ts scripts/wallet-token-data.test.ts",
+    "test:markets": "node --conditions=react-server --import tsx --test scripts/market-data.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
