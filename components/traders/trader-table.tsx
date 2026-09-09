@@ -1,4 +1,3 @@
-import { StatsSource } from "@/components/common/stats-source";
 import { FollowButton } from "@/components/tracking/follow-button";
 import Link from "next/link";
 import { formatCount, formatPct, formatRating, shortAddress } from "@/lib/format";
@@ -33,6 +32,7 @@ function Rating({ value, count }: { value: number | null | undefined; count?: nu
 
 export function TraderTable({ traders, emptyTitle = "No ranked traders for this period yet." }: { traders: AnalystTrader[]; emptyTitle?: string }) {
   if (traders.length === 0) return <EmptyState title={emptyTitle} description="Rankings appear once the data source has synced trades for this window." />;
+  const showTopToken = traders.some(t => t.topToken != null);
   const showRating = traders.some(t => t.communityRating != null);
   const showBreakdown = traders.some(t => t.buys != null && t.sells != null);
   return (
@@ -45,12 +45,12 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
               <th className={HEAD}>Trader</th>
               <th className={HEAD}>Follow</th>
               {showRating && <th className={HEAD}>Rating</th>}
-              <th className={cn(HEAD, "text-right")}>Source PnL</th>
+              <th className={cn(HEAD, "text-right")}>Realized PnL</th>
               <th className={cn(HEAD, "text-right")}>ROI</th>
               <th className={cn(HEAD, "text-right")}>Win rate</th>
               <th className={cn(HEAD, "text-right")}>Trades</th>
               {showBreakdown && <th className={cn(HEAD, "text-right")}>B / S</th>}
-              <th className={HEAD}>Top token</th>
+              {showTopToken && <th className={HEAD}>Top token</th>}
               <th className={cn(HEAD, "text-right")}>Last active</th>
             </tr>
           </thead>
@@ -68,7 +68,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                       <span className="flex flex-col">
                         <span className="font-medium text-primary group-hover:underline">{t.name}</span>
                         <span className="font-mono text-xs text-muted">{shortAddress(t.wallet)}</span>
-                        <StatsSource trader={t} />
+                        
                       </span>
                     </Link>
                   </td>
@@ -77,7 +77,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                     <Rating value={t.communityRating} count={t.ratingCount} />
                   </td>}
                   <td className={cn(CELL, "text-right font-medium")}>
-                    <MoneyDelta value={t.realizedPnl} /><StatsSource trader={t} />
+                    <MoneyDelta value={t.realizedPnl} />
                   </td>
                   <td className={cn(CELL, "text-right")}>
                     <PctDelta value={t.roi} />
@@ -87,7 +87,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                   {showBreakdown && <td className={cn(CELL, "text-right tnum")}>
                     {t.buys == null || t.sells == null ? <span className="text-xs text-muted" title="Buy/sell breakdown is not available from this source">Not supplied</span> : <><span className="text-neon">{t.buys}</span><span className="text-muted"> / </span><span className="text-negative">{t.sells}</span></>}
                   </td>}
-                  <td className={CELL}>
+                  {showTopToken && <td className={CELL}>
                     {t.topToken ? (
                       <Link href={`/token/${t.topToken.address}`} className="group inline-flex items-center gap-2">
                         <TokenAvatar symbol={t.topToken.symbol} address={t.topToken.address} image={t.topToken.image} size="xs" />
@@ -96,7 +96,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                     ) : (
                       <span className="text-muted">—</span>
                     )}
-                  </td>
+                  </td>}
                   <td className={cn(CELL, "text-right text-muted")}>
                     <TimeAgo value={t.lastActive} />
                   </td>
@@ -129,7 +129,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                 </span>
                 <span className="text-right">
                   <MoneyDelta value={t.realizedPnl} className="block text-sm font-medium" />
-                  <StatsSource trader={t} /><PctDelta value={t.roi} className="block text-xs" />
+                  <PctDelta value={t.roi} className="block text-xs" />
                 </span>
               </Link>
               <div className="px-4 pb-3"><FollowButton trader={t} /></div>
@@ -161,7 +161,7 @@ export function TraderMiniList({ traders }: { traders: AnalystTrader[] }) {
               </span>
               <span className="text-right">
                 <MoneyDelta value={t.realizedPnl} className="block text-sm font-medium" />
-                <StatsSource trader={t} />
+                
               </span>
             </Link>
           </li>

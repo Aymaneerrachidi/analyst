@@ -4,7 +4,7 @@ import { listTraders, type TraderFilter } from "@/lib/services/intelligence";
 import { RANKING_PERIODS, type RankingPeriod } from "@/lib/providers/types";
 import { PageHeader } from "@/components/common/section-header";
 import { FilterTabs } from "@/components/ui/filter-tabs";
-import { TraderTable } from "@/components/traders/trader-table";
+import { LiveLeaderboard } from "@/components/traders/live-leaderboard";
 import { ComputedLeaderboard } from '@/components/intelligence/computed-leaderboard';
 
 export const dynamic = "force-dynamic";
@@ -40,6 +40,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
   await ensureFresh("trades", 8_000);
   const rows = await listTraders({ period, filter, limit: 26, offset: (page - 1) * 25, query: q });
   const traders = rows.slice(0, 25);
+  const rankingState = await (await import("@/lib/services/external-rankings")).rankingStatus();
 
   return (
     <div>
@@ -63,9 +64,9 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
           </p>
         )}
       </div>
-      <TraderTable traders={traders} emptyTitle={q ? `No traders match “${q}”.` : undefined} />
+      <LiveLeaderboard initial={traders} initialStatus={rankingState} period={period} filter={filter} query={q} page={page} />
       <nav aria-label="Trader pages" className="mt-5 flex items-center justify-between text-sm">{page > 1 ? <a href={href(period, filter, q, page - 1)} className="rounded-lg border border-border px-4 py-2">Previous</a> : <span />}<span className="text-muted">Page {page}</span>{rows.length > 25 ? <a href={href(period, filter, q, page + 1)} className="rounded-lg border border-border px-4 py-2">Next page</a> : <span />}</nav>
-      <p className="mt-3 text-xs text-muted">Rankings use source-reported PnL for the selected period. Analyst tracked calculations cover partial recorded history and do not replace source rankings.</p>
+      <p className="mt-3 text-xs text-muted">Rankings compare realized profit for the selected period. Wallets without available profit data are excluded.</p>
     </div>
   );
 }

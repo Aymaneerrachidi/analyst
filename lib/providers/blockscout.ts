@@ -10,7 +10,11 @@ const holdersResponse = z.object({ items: z.array(z.object({ address: addressRef
 const transactionsResponse = z.object({ items: z.array(z.object({ hash: z.string(), from: addressRef, to: addressRef.nullish(), value: z.string().regex(/^\d+$/), timestamp: z.string(), status: z.string().nullish() })).max(100), next_page_params: z.unknown().optional() });
 const sourceResponse = z.object({ is_verified: z.boolean().optional(), abi: z.array(z.record(z.string(), z.unknown())).nullish(), proxy_type: z.string().nullish(), implementations: z.array(z.unknown()).optional() });
 async function request<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-  const url = `${v2Config().BLOCKSCOUT_API_URL.replace(/\/$/, '')}/${path}`;
+  const key = process.env.BLOCKSCOUT_PRO_API_KEY;
+  const base = key ? 'https://api.blockscout.com/4663/api/v2' : v2Config().BLOCKSCOUT_API_URL.replace(/\/$/, '');
+  const target = new URL(`${base}/${path}`);
+  if (key) target.searchParams.set('apikey', key);
+  const url = target.href;
   const response = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(12_000), cache: 'no-store' });
   if (!response.ok) { logEvent('BLOCKSCOUT', 'request_failed', { status: response.status }); throw new Error('Explorer request unavailable'); }
   const text = await response.text();

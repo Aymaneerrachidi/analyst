@@ -6,6 +6,7 @@ import { getDb, schema } from '../lib/db';
 import { insertTrades, recomputeDerived } from '../lib/services/sync';
 import { parseStalkTrade, stalkGet, stalkLeaderboard } from '../lib/providers/stalkchain';
 import type { UpstreamTrade } from '../lib/providers/types';
+import { refreshExternalRankings } from '../lib/services/external-rankings';
 
 if (!process.env.DATABASE_URL || (process.env.INDEXER_SECRET?.length ?? 0) < 32) throw new Error('Worker configuration missing');
 const db = await getDb();
@@ -17,6 +18,7 @@ let stopping = false, flushing = false, dirty = false, lastDerived = 0, failures
 let pending: UpstreamTrade[] = [], cursor: string | null = null, savedCursor: string | null = null;
 let stage = 'starting';
 let analytics: Promise<void> | undefined;
+let rankings: Promise<void> | undefined, lastRankings = 0;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
 const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
@@ -102,6 +104,10 @@ while (!stopping) {
     stage = 'analytics';
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
     await put('stalkchain-worker', status); broadcast('heartbeat', { upstream: upstream(), ...status });
+    if (!rankings && Date.now() - lastRankings > 900_000) {
+      lastRankings = Date.now();
+      rankings = refreshExternalRankings().then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
+    }
     // Historical analytics must never block receipt of the next live trade.
     if (dirty && !analytics && Date.now() - lastDerived > 300_000) {
       dirty = false; lastDerived = Date.now();
