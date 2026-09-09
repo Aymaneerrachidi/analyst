@@ -1,5 +1,7 @@
 # Alchemy Address Activity setup
 
+Operational check, 2026-09-09: the production receiver is deployed with the real webhook ID, signing key and `ROBINHOOD_MAINNET` configured. The pilot has one address. Notify API authentication succeeded. Unsigned POST returned 401; a signed invalid envelope returned 400 without storage. A 30-second live pilot yielded no stored events and was then paused; the Notify API confirmed `is_active:false`. Real event delivery is therefore still unverified. No plan upgrade or broad indexer restart occurred.
+
 Receiver: `POST https://analyst-orpin.vercel.app/api/webhooks/alchemy`.
 
 Create an Address Activity webhook on Robinhood Chain Mainnet, named `ANALYST - wallet pilot`. Start with one tracked wallet: `0x6078ee8a93697c6d67863fcbff77141d9ab358b2` (inquixit). Do not use the Ethereum addresses or network from the dashboard's generic example payload.
