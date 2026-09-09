@@ -19,7 +19,7 @@ if (missing.length) { console.error(`Worker configuration required: ${missing.jo
 
 const clients = new Set<ServerResponse>();
 const engine = new ChainIndexer();
-let stopping = false, failures = 0, wsStatus = "connecting", lastAnalytics = 0, lastWsBlock = 0;
+let stopping = false, failures = 0, wsStatus = "connecting", lastAnalytics = 0, lastWsBlock = 0, nextAttemptAt = 0;
 let work: Promise<void> | undefined;
 let analytics: Promise<void> | undefined;
 const broadcast = (event: string, data: unknown) => {
@@ -40,17 +40,23 @@ const server = createServer(async (req, res) => {
 });
 
 async function cycle() {
-  if (stopping || work) return;
+  if (stopping || work || Date.now() < nextAttemptAt) return;
   work = (async () => {
     try {
-      const result = await engine.tick(); failures = 0;
+      const result = await engine.tick(); failures = 0; nextAttemptAt = 0;
       if (result.blocks) broadcast("indexed", { ...result, at: new Date().toISOString() });
       // Registered background pipeline runs independently from browser requests.
       if (!analytics && Date.now() - lastAnalytics >= 60_000) {
         lastAnalytics = Date.now();
         analytics = import("../lib/v2/pipeline").then(m => m.runPipeline()).then(() => undefined).catch(() => logEvent("SIGNALS", "pipeline_failed")).finally(() => { analytics = undefined; });
       }
-    } catch { failures++; logEvent("INDEXER", "cycle_failed", { failures }); }
+    } catch (error) {
+      failures++;
+      nextAttemptAt = Date.now() + Math.min(60_000, config.INDEXER_POLL_MS * 2 ** Math.min(failures, 6));
+      // Only a bounded error class is logged; RPC URLs and response bodies can contain credentials.
+      const errorType = error instanceof Error && /^[A-Za-z]{1,64}$/.test(error.name) ? error.name : 'UnknownError';
+      logEvent("INDEXER", "cycle_failed", { failures, errorType, retryInMs: nextAttemptAt - Date.now() });
+    }
   })().finally(() => { work = undefined; });
   await work;
 }

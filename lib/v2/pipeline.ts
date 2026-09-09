@@ -11,6 +11,7 @@ import { logEvent } from "./log";
 import { refreshWalletMetrics } from "@/lib/intelligence/service";
 import { generateSignals, updateSignalOutcomes } from "@/lib/intelligence/signal-store";
 import { deliverAlerts } from '@/lib/intelligence/alerts';
+import { discoverExistingPools } from '@/lib/indexer/discovery';
 
 /** Central scheduled enrichment. No browser triggers this scan or paid research. */
 export async function captureMarketObservations() {
@@ -64,6 +65,7 @@ export async function runPipeline() {
       return result.tradesUpserted;
     });
     await stage('markets', captureMarketObservations);
+    await stage('poolDiscovery', discoverExistingPools);
     await stage('charts', async () => {
       const { getTokenChart } = await import('@/lib/services/token-chart');
       const requests = await db.select().from(schema.appMeta).where(sql`${schema.appMeta.key} like 'demand:chart:%'`).orderBy(schema.appMeta.updatedAt).limit(8);
