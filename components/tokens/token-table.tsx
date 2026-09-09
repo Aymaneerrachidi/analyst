@@ -11,6 +11,7 @@ const HEAD = "px-3 py-2.5 text-left label-caps first:pl-4 last:pr-4 whitespace-n
 const CELL = "px-3 py-3 align-middle first:pl-4 last:pr-4";
 
 export function NetFlow({ token, size = "md" }: { token: AnalystToken; size?: "sm" | "md" | "lg" }) {
+  if (token.hasWindowActivity === false) return <span className="text-xs text-muted">No recorded activity</span>;
   return (
     <span className="inline-flex flex-col items-end">
       <MoneyDelta value={token.netAccumulation} className={cn("font-semibold", size === "sm" ? "text-sm" : size === "md" ? "text-base" : "text-2xl tracking-tight")} />
@@ -50,8 +51,8 @@ export function TokenTable({ tokens, emptyTitle = "No token activity in this win
               </td>
               <td className={cn(CELL, "text-right text-secondary tnum")}>{t.volume24h != null ? formatUsd(t.volume24h) : <span className="text-xs text-muted">Not indexed</span>}</td>
               <td className={cn(CELL, "text-right tnum")}><span className="block">{t.trackedTraders} {t.trackedTraders === 1 ? "trader" : "traders"}</span><span className="mt-1 block whitespace-nowrap text-xs"><span className="text-neon">{t.traderBuys} {t.traderBuys === 1 ? "buy" : "buys"}</span><span className="px-1 text-muted">·</span><span className="text-negative">{t.traderSells} {t.traderSells === 1 ? "sell" : "sells"}</span></span></td>
-              <td className={cn(CELL, "text-right")}><NetFlow token={t} /></td>
-              <td className={cn(CELL, "text-right")}><AnalystScoreBadge score={t.score} window={window} /></td>
+              <td className={cn(CELL, "text-right")}><>{t.hasWindowActivity === false ? <span className="text-xs text-muted">No recorded activity</span> : <NetFlow token={t} />}</></td>
+              <td className={cn(CELL, "text-right")}><>{t.hasWindowActivity === false ? <span className="text-xs text-muted">Not rated</span> : <AnalystScoreBadge score={t.score} window={window} />}</></td>
             </tr>
           ))}</tbody>
         </table>
@@ -61,7 +62,7 @@ export function TokenTable({ tokens, emptyTitle = "No token activity in this win
           <div className="flex items-start justify-between gap-3">
             <Link href={`/token/${t.address}`} className="flex min-w-0 items-center gap-3"><TokenAvatar symbol={t.symbol} address={t.address} image={t.image} />
               <span className="min-w-0"><span className="block break-all font-semibold">${t.symbol}</span><span className="mt-1 block text-xs text-muted">{t.trackedTraders} {t.trackedTraders === 1 ? "trader" : "traders"} · {t.traderBuys} {t.traderBuys === 1 ? "buy" : "buys"} · {t.traderSells} {t.traderSells === 1 ? "sell" : "sells"}</span></span>
-            </Link><AnalystScoreBadge score={t.score} window={window} />
+            </Link><>{t.hasWindowActivity === false ? <span className="text-xs text-muted">Not rated</span> : <AnalystScoreBadge score={t.score} window={window} />}</>
           </div>
           <div className="mt-4 flex items-end justify-between gap-3 tnum"><div>
             <span className="block text-xs text-muted">Price</span><span className="mt-1 block text-sm">{t.price != null ? formatPrice(t.price) : "Not indexed"}{t.price != null && t.priceChange24h != null && <span className="ms-2 text-xs"><PctDelta value={t.priceChange24h} /></span>}</span>
@@ -121,7 +122,7 @@ export function TopBuysTable({ tokens, window, compact }: { tokens: AnalystToken
                   )}
                 </td>}
                 <td className={cn(CELL, "text-right")}>
-                  <AnalystScoreBadge score={t.score} window={window} />
+                  <>{t.hasWindowActivity === false ? <span className="text-xs text-muted">Not rated</span> : <AnalystScoreBadge score={t.score} window={window} />}</>
                 </td>
               </tr>
             ))}
@@ -146,7 +147,7 @@ export function TopBuysTable({ tokens, window, compact }: { tokens: AnalystToken
                 <MoneyDelta value={t.netAccumulation} className="block text-sm font-semibold" />
                 <span className="block text-[11px] text-muted">{formatPct(t.priceChange24h)} 24H</span>
               </span>
-              <AnalystScoreBadge score={t.score} window={window} />
+              <>{t.hasWindowActivity === false ? <span className="text-xs text-muted">Not rated</span> : <AnalystScoreBadge score={t.score} window={window} />}</>
             </div>
           </li>
         ))}

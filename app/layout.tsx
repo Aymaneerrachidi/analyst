@@ -1,4 +1,5 @@
 import { AlertEngine } from "@/components/tracking/alert-engine";
+import { PreferenceStatus } from '@/components/tracking/preference-status';
 import type { Metadata, Viewport } from "next";
 
 export const maxDuration = 300;
@@ -51,9 +52,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-primary">
         <QueryProvider>
-          <TradeStreamProvider enabled={env().DATA_PROVIDER === "kolhood"}>
+          <TradeStreamProvider enabled={env().DATA_PROVIDER === "kolhood" || Boolean(process.env.INDEXER_URL)} shared={Boolean(process.env.INDEXER_URL && process.env.INDEXER_SECRET)}>
           <TooltipProvider>
             <AlertEngine />
+            <PreferenceStatus />
             <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-neon focus:px-5 focus:py-3 focus:text-background">Skip to content</a>
             <TopNav />
             <DiscoveryPanel />

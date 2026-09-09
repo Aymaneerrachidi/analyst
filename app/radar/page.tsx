@@ -1,0 +1,11 @@
+import Link from 'next/link';
+import { listRadar } from '@/lib/intelligence/signal-store';
+import { IntelligenceHeader, EvidenceMetric, Coverage, knownUsd } from '@/components/intelligence/primitives';
+import { TokenAvatar } from '@/components/common/avatar';
+import { EmptyState } from '@/components/ui/states';
+export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Runner Radar' };
+export default async function RadarPage() {
+  const signals = await listRadar();
+  return <><IntelligenceHeader title="Runner Radar" description="Meaningful acceleration, measured wallet activity, and visible risk coverage. Each result preserves the inputs observed when the signal was created." />{signals.length ? <div className="space-y-4">{signals.map(s => <article key={s.id} className="card p-5"><div className="flex items-center gap-3"><TokenAvatar symbol={s.context.token.symbol} address={s.context.token.address} image={s.context.token.image} /><Link className="font-medium hover:text-neon" href={`/token/${s.context.token.address}`}>${s.context.token.symbol}</Link><span className="ms-auto text-xs text-neon">{s.type}</span></div><dl className="mt-5 grid grid-cols-2 gap-5 lg:grid-cols-5"><EvidenceMetric label="Runner score">{s.score}/100</EvidenceMetric><EvidenceMetric label="On-chain market cap">{knownUsd(s.context.marketCap)}</EvidenceMetric><EvidenceMetric label="Liquidity">{knownUsd(s.context.liquidity)}</EvidenceMetric><EvidenceMetric label="Smart-money net · 1h">{knownUsd(s.context.consensus.smartMoneyNet)}</EvidenceMetric><EvidenceMetric label="Risk">{s.context.risk.level}</EvidenceMetric></dl><details className="mt-4 text-sm"><summary className="text-secondary">Signal evidence</summary><ul className="mt-3 space-y-2 text-muted">{s.context.runner.reasons.map(r => <li key={r}>{r}</li>)}</ul></details><Coverage>Observed {new Date(s.at).toLocaleString()} · input coverage {Math.round(s.context.runner.coverage * 100)}% · partial monitored history.</Coverage></article>)}</div> : <EmptyState title="No qualifying signals in the last 30 minutes." description="Radar requires fresh market snapshots, meaningful volume, at least three buyers, liquidity and explainable scores. Signals appear when the worker observes qualifying activity." />}</>;
+}

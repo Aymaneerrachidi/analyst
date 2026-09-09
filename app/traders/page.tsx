@@ -5,6 +5,7 @@ import { RANKING_PERIODS, type RankingPeriod } from "@/lib/providers/types";
 import { PageHeader } from "@/components/common/section-header";
 import { FilterTabs } from "@/components/ui/filter-tabs";
 import { TraderTable } from "@/components/traders/trader-table";
+import { ComputedLeaderboard } from '@/components/intelligence/computed-leaderboard';
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Top Traders" };
@@ -35,6 +36,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 40) : "";
 
   const page = Math.min(200, Math.max(1, Math.floor(Number(sp.page) || 1)));
+  if (sp.source === 'analyst') return <ComputedLeaderboard period={period} query={q} sort={typeof sp.sort === 'string' ? sp.sort : 'quality'} minimum={Math.min(100000, Math.max(0, Number(sp.minimum) || 0))} page={page} />;
   await ensureFresh("trades", 8_000);
   const rows = await listTraders({ period, filter, limit: 26, offset: (page - 1) * 25, query: q });
   const traders = rows.slice(0, 25);
@@ -45,6 +47,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
         <FilterTabs value={period} options={RANKING_PERIODS.map((p) => ({ value: p, label: PERIOD_LABELS[p], href: href(p, filter, q) }))} ariaLabel="Ranking period" />
       </PageHeader>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <a href={`/traders?source=analyst&period=${period}`} className="text-sm text-neon">Analyst computed rankings</a>
         <form className="flex items-center gap-2" action="/traders">
           <input type="hidden" name="period" value={period} /><input type="hidden" name="filter" value={filter} />
           <input name="q" defaultValue={q} aria-label="Find a trader" placeholder="Name or wallet address" className="h-9 w-52 rounded-lg border border-border bg-surface px-3 text-sm" />

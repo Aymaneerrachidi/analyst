@@ -4,7 +4,7 @@ const schema = z.object({
   DATABASE_URL: z.string().optional(),
   PGLITE_DATA_DIR: z.string().optional(),
   DIRECT_URL: z.string().optional(),
-  DATA_PROVIDER: z.enum(["mock", "kolhood"]).default("kolhood"),
+  DATA_PROVIDER: z.enum(["mock", "kolhood", "chain"]).default("kolhood"),
   UPSTREAM_BASE_URL: z.string().url().default("https://kolhood.io"),
   UPSTREAM_API_KEY: z.string().optional(),
   EXPLORER_BASE_URL: z.string().url().default("https://explorer.robinhood.com"),
@@ -35,7 +35,7 @@ export function env(): Env {
   const value = parsed.data;
   if (process.env.VERCEL) {
     if (!value.DATABASE_URL) throw new Error("Vercel requires a managed DATABASE_URL");
-    if (value.DATA_PROVIDER !== "kolhood" || value.MARKET_DATA_PROVIDER !== "dexscreener") throw new Error("Vercel requires live data providers");
+    if (value.DATA_PROVIDER === "mock" || value.MARKET_DATA_PROVIDER !== "dexscreener") throw new Error("Vercel requires live data providers");
     if (value.INTERNAL_SYNC_SECRET.length < 32 || value.GUEST_HASH_SALT.length < 32) throw new Error("Production secrets must contain at least 32 characters");
     if (!value.NEXT_PUBLIC_APP_URL.startsWith("https://")) throw new Error("Production app URL must use HTTPS");
   }

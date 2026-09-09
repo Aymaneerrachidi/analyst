@@ -151,7 +151,7 @@ test("live filters, pause/resume, empty states and retry states work", async ({ 
   await expect(page.getByRole("button", { name: "Resume updates" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Buys", exact: true }).click();
   await expect(page.locator("main tbody tr").first()).toContainText("BUY");
-  await expect(page.locator("main tbody")).not.toContainText("SELL");
+  await expect(page.locator("main tbody tr").filter({ hasText: "SELL" })).toHaveCount(0);
   await page.getByRole("button", { name: "Resume updates" }).click();
   await page.getByLabel("Filter by token").fill("no-such-token-qa");
   await expect(page.getByText("No trades match these filters.")).toBeVisible();

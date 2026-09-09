@@ -13,11 +13,21 @@ import { preserveChartHistory } from "@/lib/chart-series";
 import { readCache, writeCache } from "@/lib/providers/persistent-cache";
 
 export async function getTokenChart(address: string, window: FlowWindow): Promise<TokenChartData> {
+  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') {
+    const db = await getDb();
+    await db.insert(schema.appMeta).values({ key: `demand:chart:${address.toLowerCase()}:${window}`, value: { address: address.toLowerCase(), window } }).onConflictDoNothing();
+    const cached = await readCache<TokenChartData & { retrievedAt?: string }>('chart-history', `${address.toLowerCase()}-${window}`);
+    if (cached) {
+      const markers = (await listTrades({ tokenAddress: address, limit: 200 })).filter(t => Date.parse(t.timestamp) >= Date.now() - WINDOW_MS[window]);
+      if (cached.retrievedAt && Date.now() - Date.parse(cached.retrievedAt) < 120000) return { ...cached, markers };
+      return preserveChartHistory({ ...cached, markers, candles: [] }, cached, Date.now());
+    }
+  }
   const result = await loadTokenChart(address, window);
   if (getProvider().isMock) return result;
   const key = `${address.toLowerCase()}-${window}`;
   if (result.candles.length) {
-    await writeCache("chart-history", key, result);
+    await writeCache("chart-history", key, { ...result, retrievedAt: new Date().toISOString() });
     return result;
   }
   // Providers can return an empty HTTP 200 during outages. Preserve real history
@@ -30,10 +40,13 @@ async function loadTokenChart(address: string, window: FlowWindow): Promise<Toke
   const span = WINDOW_MS[window];
   const now = Date.now();
   const start = now - span;
-  const rows = await db.select({ t: schema.trades.timestamp, side: schema.trades.side, usd: schema.trades.amountUsd, price: schema.trades.price, tokenAmount: schema.trades.tokenAmount })
+  const imported = await db.select({ hash: schema.trades.txHash, wallet: schema.trades.traderId, t: schema.trades.timestamp, side: schema.trades.side, usd: schema.trades.amountUsd, price: schema.trades.price, tokenAmount: schema.trades.tokenAmount })
     .from(schema.trades)
     .where(and(eq(schema.trades.tokenAddress, address.toLowerCase()), gt(schema.trades.timestamp, new Date(start))))
     .orderBy(schema.trades.timestamp, schema.trades.seq);
+  const indexed = await db.select().from(schema.chainSwaps).where(and(eq(schema.chainSwaps.tokenAddress, address.toLowerCase()), gt(schema.chainSwaps.timestamp, new Date(start)))).orderBy(schema.chainSwaps.timestamp, schema.chainSwaps.logIndex);
+  const identities = new Set(indexed.map(t => `${t.txHash.toLowerCase()}:${t.walletAddress}:${t.side}`));
+  const rows = [...imported.filter(t => !t.hash || !identities.has(`${t.hash.toLowerCase()}:${t.wallet}:${t.side}`)), ...indexed.map(t => ({ t: t.timestamp, side: t.side, usd: t.usdValue, price: t.executionPrice, tokenAmount: Number(t.amountToken) }))].sort((a, b) => a.t.getTime() - b.t.getTime());
   const markers = (await listTrades({ tokenAddress: address, limit: 200 })).filter(t => Date.parse(t.timestamp) >= start);
   const activity = rows.length ? Array.from({ length: 48 }, (_, i) => ({ t: start + (i + 1) * span / 48, buyUsd: 0, sellUsd: 0, buys: 0, sells: 0 })) : [];
   for (const row of rows) {
@@ -51,7 +64,7 @@ async function loadTokenChart(address: string, window: FlowWindow): Promise<Toke
   const fallback: TokenChartData = executions.length
     ? { window, markers, candles: executions, activity, source: "executions", priceUnit: "USD", marketUrl: null }
     : { window, markers, candles: [], activity, source: "unavailable", marketUrl: null, error: "No market history or priced executions are available for this period." };
-  if (!marketDataEnabled()) return fallback;
+  if (!marketDataEnabled() || process.env.INDEXER_URL && process.env.ANALYST_WORKER !== "1") return fallback;
   try {
     const result = await fetchTokenCandles(address, window);
     if (result.candles.length) return { window, markers, candles: result.candles, activity, source: "geckoterminal", marketUrl: result.marketUrl, fdv: result.token?.fdv, liquidityUsd: result.token?.liquidityUsd };

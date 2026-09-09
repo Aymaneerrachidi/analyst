@@ -8,7 +8,7 @@ import { getDb, schema } from "@/lib/db";
 export async function readCache<T>(namespace: string, key: string): Promise<T | null> {
   if (process.env.NODE_TEST_CONTEXT) return null;
   try {
-    if (process.env.VERCEL) {
+    if (process.env.VERCEL || process.env.ANALYST_WORKER === "1") {
       const db = await getDb();
       const [row] = await db.select({ value: schema.appMeta.value }).from(schema.appMeta)
         .where(eq(schema.appMeta.key, `cache:${namespace}:${key}`)).limit(1);
@@ -21,7 +21,7 @@ export async function readCache<T>(namespace: string, key: string): Promise<T | 
 export async function writeCache(namespace: string, key: string, value: unknown): Promise<void> {
   if (process.env.NODE_TEST_CONTEXT) return;
   try {
-    if (process.env.VERCEL) {
+    if (process.env.VERCEL || process.env.ANALYST_WORKER === "1") {
       const db = await getDb();
       await db.insert(schema.appMeta).values({ key: `cache:${namespace}:${key}`, value })
         .onConflictDoUpdate({ target: schema.appMeta.key, set: { value, updatedAt: new Date() } });

@@ -27,6 +27,8 @@ import { WatchButton } from "@/components/workspace/watchlist";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { TokenChart } from "@/components/tokens/token-chart";
 import { TradePanel } from "@/components/trading/trade-panel";
+import { tokenContext } from "@/lib/intelligence/token-context";
+import { TokenIntelligencePanel } from "@/components/intelligence/token-intelligence";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
   await Promise.all([refreshTokenMarketData(address), refreshTokenTraders(address)]);
   const token = await getToken(address, window);
   if (!token) notFound();
+  const intelligence = await tokenContext(token.address);
   await seedSocialIfEmpty().catch(() => undefined);
   const guest = await getGuest();
   const [topTraders, trades, comments] = await Promise.all([
@@ -101,7 +104,8 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
 
       {/* Top traders in token */}
       <TokenChart address={token.address} symbol={token.symbol} currentPrice={token.price} initialTrades={chartTrades} />
-      <TradePanel key={token.address} address={token.address} symbol={token.symbol} />
+      <TradePanel key={token.address} address={token.address} symbol={token.symbol} risk={intelligence?.risk} />
+      {intelligence && <TokenIntelligencePanel context={intelligence} />}
 
       <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>
       <section>

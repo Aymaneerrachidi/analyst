@@ -10,12 +10,17 @@
     "typecheck": "tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test scripts/regression.test.ts",
     "test:trading": "node --import tsx --test scripts/trading.test.ts",
+    "test:v2": "node --conditions=react-server --import tsx --test scripts/v2.test.ts",
+    "worker:build": "esbuild worker/index.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/worker.mjs",
+    "worker:start": "node --conditions=react-server dist/worker.mjs",
+    "worker:check": "npm run worker:build && node --conditions=react-server dist/worker.mjs --check",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "sync": "tsx --conditions=react-server scripts/smoke.ts",
-    "check": "npm run typecheck && npm run lint && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:v2 && npm run test:chain && npm run test:trading && npm run worker:build && npm run build",
+    "test:chain": "node --conditions=react-server --import tsx --test scripts/chain-provider.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -53,6 +58,7 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",

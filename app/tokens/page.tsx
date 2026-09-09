@@ -18,7 +18,7 @@ const TABS: { value: TokenTab; label: string }[] = [
   { value: "new", label: "New activity" },
 ];
 
-function href(tab: TokenTab, window: FlowWindow, q?: string, page = 1, category: AssetCategory = "memes"): string {
+function href(tab: TokenTab, window: FlowWindow, q?: string, page = 1, category: AssetCategory = "all"): string {
   const qs = new URLSearchParams();
   qs.set("category", category);
   if (tab !== "trending") qs.set("tab", tab);
@@ -35,7 +35,7 @@ export default async function TokensPage({ searchParams }: { searchParams: Promi
   const window = (FLOW_WINDOWS as string[]).includes(String(sp.w)) ? (sp.w as FlowWindow) : "24h";
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 40) : "";
   const page = Math.min(100, Math.max(1, Math.floor(Number(sp.page) || 1)));
-  const category: AssetCategory = ASSET_CATEGORIES.includes(sp.category as AssetCategory) ? sp.category as AssetCategory : q ? "all" : "memes";
+  const category: AssetCategory = ASSET_CATEGORIES.includes(sp.category as AssetCategory) ? sp.category as AssetCategory : "all";
 
   await ensureFresh("trades", 8_000);
   const tokens = await listTokens({ tab, window, category, limit: 100, offset: (page - 1) * 100, query: q || undefined });

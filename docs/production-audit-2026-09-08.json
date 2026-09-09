@@ -1,0 +1,140 @@
+{
+  "checkedAt": "2026-09-08T03:24:36.638Z",
+  "routes": [
+    {
+      "path": "/",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/live",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/tokens",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/tokens?category=stablecoins&w=1h",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/traders",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/traders?period=7d&filter=active&page=2",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/trader/0x6abea4998f9ef34ee1cda5715ccca0e4d4efb730",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/token/0xf24f8f6b08fe87cf062e833a732ad7f636064bc8",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/following",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/alerts",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/watchlist",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    },
+    {
+      "path": "/social",
+      "status": 200,
+      "desktopOverflow": false,
+      "mobileOverflow": false
+    }
+  ],
+  "profiles": [
+    {
+      "name": "yolololoyo",
+      "consistent": true,
+      "source": "Defined",
+      "period": "30d",
+      "pnl": 1427802.55,
+      "winRate": 67.4323182750714,
+      "trades": 175081
+    },
+    {
+      "name": "itai",
+      "consistent": true,
+      "source": "KOLHOOD",
+      "period": "30d",
+      "pnl": 609179.57,
+      "winRate": null,
+      "trades": 579
+    },
+    {
+      "name": "404flipped",
+      "consistent": true,
+      "source": "KOLHOOD",
+      "period": "30d",
+      "pnl": 391147.43,
+      "winRate": null,
+      "trades": 258
+    }
+  ],
+  "charts": [
+    {
+      "address": "0xf24f8f6b08fe87cf062e833a732ad7f636064bc8",
+      "status": 200,
+      "source": "geckoterminal",
+      "candles": 95,
+      "markers": 0
+    },
+    {
+      "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+      "status": 200,
+      "source": "geckoterminal",
+      "candles": 96,
+      "markers": 0
+    }
+  ],
+  "errors": [],
+  "socketFrames": 24,
+  "liveText": "Robinhood Chain LIVE",
+  "chartText": "PRM price\n\n$0.00316USD\n\n1H\n6H\n24H\n7D\nPrice\nTracked flow\nTrade markers\nMarker traders\nAll traders\nFollowing\nBuys & sells\nBuys\nSells\nAny size\n$1,000+\n$5,000+\n19:23\n05:15\n$0.00095\n$0.0019\n$0.00285\n$0.0038\n$0.00475\n\nTrade timeline · 0 recorded swaps · Buy / Sell\n\nNo recorded swaps match these timeline filters.\n\nTimeline shows timestamps, not prices. Price-chart markers require a known USD execution price and a USD chart. Nearby trades are grouped; select one for details. Up to 200 stored swaps plus incoming trades.\n\nRecorded prices in USD. Gaps may reflect periods without trading.\n\nGeckoTerminal\n\nFully diluted valuation $3.1M · Liquidity $118.9K",
+  "ssrChart": "PRM price$0.00315Latest market quote · USD1H6H24H7DPriceTracked flowTrade markersMarker tradersAll tradersFollowingBuys & sellsBuysSellsAny size$1,000+$5,000+Trade timeline · 0 recorded swaps · Buy / SellNo recorded swaps match these timeline filters.Timeline shows timestamps, not prices. Price-chart markers require a known USD execution price and a USD chart. Nearby trades are grouped; select one for details. Up to 200 stored swaps plus incoming trades.Recorded prices in USD. Gaps may reflect periods without trading.",
+  "ssrConnecting": false,
+  "freshness": {
+    "provider": "kolhood",
+    "isMock": false,
+    "lastSyncAt": "2026-09-08T03:24:05.606Z",
+    "lastSyncOk": true,
+    "ageMs": 62032,
+    "status": "delayed",
+    "trackedTraders": 204
+  },
+  "systemPosts": 0,
+  "unauthorizedSync": 401,
+  "crossSiteWrite": 403
+}

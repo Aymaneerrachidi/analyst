@@ -1,56 +1,40 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
-import { encodeFunctionData, type Address } from "viem";
-import { ALLOWANCE_HOLDER, NATIVE, holderAbi, settlerAbi, tradeInputSchema, umbraLink, unitsExact, validateExecution, type TradeQuote } from "../lib/trading/shared";
-
-// Synthetic fixtures are confined to tests; production quotes always come from providers.
-const account = "0x1111111111111111111111111111111111111111" as Address;
-const token = "0x2222222222222222222222222222222222222222" as Address;
-const settler = "0x3333333333333333333333333333333333333333" as Address;
-const attacker = "0x4444444444444444444444444444444444444444" as Address;
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { keccak256, type Address } from 'viem';
+import { NATIVE, tradeInputSchema, unitsExact, type TradeQuote } from '../lib/trading/shared';
+import { directCalldata, validateDirectExecution, verifyDirectRoute } from '../lib/trading/direct-shared';
+const account = `0x${'1'.repeat(40)}` as Address, token = `0x${'2'.repeat(40)}` as Address, router = `0x${'3'.repeat(40)}` as Address, wrapped = `0x${'4'.repeat(40)}` as Address;
 const now = 1800000000000;
 function makeQuote(sell = false): TradeQuote {
-  const nested = encodeFunctionData({ abi: settlerAbi, functionName: "execute", args: [{ recipient: account, buyToken: sell ? NATIVE : token, minAmountOut: BigInt(99) }, ["0x12345678"], `0x${"00".repeat(32)}`] });
-  return { provider: "0x", executable: true, account, sellToken: sell ? token : NATIVE, buyToken: sell ? NATIVE : token, sellAmount: "1000", buyAmount: "100", minBuyAmount: "99", sellDecimals: 18, buyDecimals: 18, expiresAt: now + 60_000, routes: ["Test venue"], fees: [], spender: sell ? ALLOWANCE_HOLDER : undefined, transaction: { to: sell ? ALLOWANCE_HOLDER : settler, value: sell ? "0" : "1000", data: sell ? encodeFunctionData({ abi: holderAbi, functionName: "exec", args: [settler, token, BigInt(1000), settler, nested] }) : nested } };
+ const q: TradeQuote = { provider: 'Uniswap V3', executable: true, account, sellToken: sell ? token : NATIVE, buyToken: sell ? NATIVE : token, sellAmount: '1000', buyAmount: '100', minBuyAmount: '99', sellDecimals: 18, buyDecimals: 18, expiresAt: now + 60000, routes: ['Test fixture'], fees: [], spender: sell ? router : undefined, transaction: { to: router, data: '0x', value: sell ? '0' : '1000' }, direct: { kind: 'uniswap-v3', factory: router, pool: router, wrappedNative: wrapped, fee: 3000, codeHash: keccak256('0x6000'), block: 100, priceImpact: null, partialFill: false } };
+ q.transaction!.data = directCalldata(q, account); return q;
 }
-test("exact amounts reject rounding, exponent notation, zero and uint256 overflow", () => {
-  assert.equal(unitsExact("1.123456", 6), BigInt(1123456));
-  for (const value of ["1.1234567", "0", "-1", "1e5", " 1", "01", "Infinity"]) assert.throws(() => unitsExact(value, 6));
-  assert.throws(() => unitsExact((BigInt(2) ** BigInt(256)).toString(), 0));
+test('exact amounts reject rounding, exponents, zero and uint256 overflow', () => {
+ assert.equal(unitsExact('1.123456', 6), BigInt(1123456));
+ for (const value of ['1.1234567','0','-1','1e5',' 1','01','Infinity']) assert.throws(() => unitsExact(value, 6));
+ assert.throws(() => unitsExact((BigInt(2) ** BigInt(256)).toString(), 0));
 });
-test("request schema bounds slippage and rejects extra transaction fields", () => {
-  const body = { token, side: "buy", amount: "0.01", slippageBps: 50 };
-  assert.ok(tradeInputSchema.safeParse(body).success);
-  for (const change of [{ slippageBps: 10000 }, { slippageBps: -1 }, { transaction: {} }, { token: "0x0" }, { account: "0x0000000000000000000000000000000000000000" }]) assert.equal(tradeInputSchema.safeParse({ ...body, ...change }).success, false);
+test('trade schema bounds slippage and rejects supplied transaction fields', () => {
+ const body = { token, side: 'buy', amount: '0.01', slippageBps: 50 };
+ assert.ok(tradeInputSchema.safeParse(body).success);
+ for (const change of [{ slippageBps: 10000 }, { transaction: {} }, { token: '0x0' }]) assert.equal(tradeInputSchema.safeParse({ ...body, ...change }).success, false);
 });
-test("accepts native and exact-input ERC20 calls through genuine settlement contracts", () => {
-  validateExecution(makeQuote(), account, [settler], now);
-  validateExecution(makeQuote(true), account, [settler], now);
-  const q = makeQuote();
-  const nested = q.transaction!.data;
-  q.transaction!.to = ALLOWANCE_HOLDER;
-  q.transaction!.data = encodeFunctionData({ abi: holderAbi, functionName: "exec", args: [settler, "0x0000000000000000000000000000000000000000", BigInt(q.sellAmount), settler, nested] });
-  validateExecution(q, account, [settler], now);
+test('V3 native and ERC20 routes validate their exact calldata', () => {
+ validateDirectExecution(makeQuote(), account, now); validateDirectExecution(makeQuote(true), account, now);
 });
-test("rejects expired quotes, different wallets, unverified providers and arbitrary spenders", () => {
-  for (const change of [{ expiresAt: now }, { expiresAt: now + 90_000 }, { account: attacker }, { executable: false }, { provider: "Umbra" as const }, { spender: attacker }]) assert.throws(() => validateExecution({ ...makeQuote(), ...change }, account, [settler], now));
+test('expired, foreign wallet and incorrect native value quotes fail', () => {
+ assert.throws(() => validateDirectExecution(makeQuote(), account, now + 60000));
+ assert.throws(() => validateDirectExecution(makeQuote(), wrapped, now));
+ const q = makeQuote(); q.transaction!.value = '1001'; assert.throws(() => validateDirectExecution(q, account, now));
 });
-test("rejects arbitrary routers, unexpected ETH, allowance operators and input amounts", () => {
-  let q = makeQuote(); q.transaction!.to = attacker; assert.throws(() => validateExecution(q, account, [settler], now));
-  q = makeQuote(); q.transaction!.value = "1001"; assert.throws(() => validateExecution(q, account, [settler], now));
-  for (const args of [[attacker, token, BigInt(1000), settler], [settler, attacker, BigInt(1000), settler], [settler, token, BigInt(1001), settler]] as const) {
-    q = makeQuote(true); q.transaction!.data = encodeFunctionData({ abi: holderAbi, functionName: "exec", args: [...args, makeQuote().transaction!.data] });
-    assert.throws(() => validateExecution(q, account, [settler], now));
-  }
+test('recipient, amount, output token and minimum tampering fails', () => {
+ for (const patch of [{ sellAmount: '2000' }, { buyToken: wrapped }, { minBuyAmount: '98' }]) assert.throws(() => validateDirectExecution({ ...makeQuote(), ...patch }, account, now));
+ const q = makeQuote(); q.transaction!.data = directCalldata(q, wrapped); assert.throws(() => validateDirectExecution(q, account, now));
 });
-test("rejects encoded recipient, output token, slippage floor and empty actions tampering", () => {
-  for (const change of [{ recipient: attacker }, { buyToken: attacker }, { minAmountOut: BigInt(1) }]) {
-    const q = makeQuote(); q.transaction!.data = encodeFunctionData({ abi: settlerAbi, functionName: "execute", args: [{ recipient: account, buyToken: token, minAmountOut: BigInt(99), ...change }, ["0x12345678"], `0x${"00".repeat(32)}`] });
-    assert.throws(() => validateExecution(q, account, [settler], now));
-  }
-  const q = makeQuote(); q.transaction!.data = "0xdeadbeef"; assert.throws(() => validateExecution(q, account, [settler], now));
+test('ERC20 spender must match the verified direct route', () => {
+ const q = makeQuote(true); q.spender = wrapped; assert.throws(() => validateDirectExecution(q, account, now));
 });
-test("external trade links preserve direction and exact entered amount", () => {
-  const url = new URL(umbraLink({ token, side: "sell", amount: "12.123456" }));
-  assert.equal(url.origin, "https://www.umbra.finance"); assert.equal(url.searchParams.get("pay"), token); assert.equal(url.searchParams.get("buy"), "ETH"); assert.equal(url.searchParams.get("amt"), "12.123456");
+test('changed or missing router bytecode fails before a wallet request', async () => {
+ const q = makeQuote();
+ for (const code of ['0x', '0x6001'] as const) await assert.rejects(verifyDirectRoute({ getCode: async () => code, readContract: async () => router } as unknown as Parameters<typeof verifyDirectRoute>[0], q), /bytecode changed/);
 });

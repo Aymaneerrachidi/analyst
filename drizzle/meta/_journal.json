@@ -15,6 +15,13 @@
       "when": 1788718598362,
       "tag": "0001_thick_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788838047719,
+      "tag": "0002_analyst_v2_foundation",
+      "breakpoints": true
     }
   ]
 }

@@ -85,7 +85,7 @@ export interface FetchTradesOptions {
 }
 
 export interface DataProvider {
-  readonly name: "mock" | "kolhood";
+  readonly name: "mock" | "kolhood" | "chain";
   /** True only for synthetic data. Surfaces in the UI so mock data is never mistaken for production data. */
   readonly isMock: boolean;
   fetchTraders(): Promise<UpstreamTrader[]>;

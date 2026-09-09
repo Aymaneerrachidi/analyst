@@ -1,5 +1,6 @@
 import "server-only";
-import { after } from "next/server";
+import { indexedTradeSnapshot } from "@/lib/intelligence/live";
+import { mergeLiveTrades } from "@/lib/client/live-trades";
 import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb, schema } from "@/lib/db";
@@ -97,7 +98,7 @@ export async function listTrades(opts: ListTradesOptions = {}): Promise<AnalystT
     .orderBy(desc(trades.timestamp), desc(trades.seq))
     .limit(limit);
 
-  return rows.map(({ trade, trader, token }) => ({
+  const imported: AnalystTrade[] = rows.map(({ trade, trader, token }) => ({
     id: trade.id,
     seq: Number(trade.seq),
     traderId: trade.traderId,
@@ -111,6 +112,17 @@ export async function listTrades(opts: ListTradesOptions = {}): Promise<AnalystT
     timestamp: trade.timestamp.toISOString(),
     txHash: trade.txHash,
   }));
+  if (opts.beforeSeq != null) return imported;
+  let wallets = opts.traderId ? [opts.traderId.toLowerCase()] : opts.traderIds?.map(id => id.toLowerCase());
+  if (opts.filter === 'top') {
+    const ranked = await db.select({ id: traderSnapshots.traderId }).from(traderSnapshots).where(and(eq(traderSnapshots.period, '7d'), sql`${traderSnapshots.rank} <= 10`));
+    const top = new Set(ranked.map(r => r.id));
+    wallets = wallets ? wallets.filter(id => top.has(id)) : [...top];
+  }
+  // Legacy sequence numbers do not identify chain logs. Reconcile the latest
+  // canonical fills on incremental polls; clients deduplicate by transaction/log.
+  const indexed = await indexedTradeSnapshot(limit, { token: opts.tokenAddress, wallets, side: opts.filter === 'buys' ? 'BUY' : opts.filter === 'sells' ? 'SELL' : undefined, minUsd: Math.max(opts.minUsd ?? 0, opts.filter === 'large' ? LARGE_TRADE_USD : 0), query: opts.query?.replace(/^\$/, '') });
+  return mergeLiveTrades(imported, indexed, limit);
 }
 
 // ---------------------------------------------------------------------------
@@ -347,7 +359,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
       order = [desc(sql`${tokenSnapshots.score} * 1.0 + least(${tokenSnapshots.trackedTraders}, 20) * 1.5`), desc(tokenSnapshots.netFlowUsd)];
   }
 
-  const where: SQL[] = [eq(tokenSnapshots.window, window)];
+  const where: SQL[] = [];
   const normalizedSymbol = sql`upper(ltrim(${tokens.symbol}, '$'))`;
   const categorySql = sql`case when ${normalizedSymbol} in (${sql.join(STABLE_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stablecoins' when ${normalizedSymbol} in (${sql.join(STOCK_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stocks' when ${normalizedSymbol} in (${sql.join(MEME_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'memes' else 'other' end`;
   if (opts.category && !["all", "new"].includes(opts.category)) where.push(sql`${categorySql} = ${opts.category}`);
@@ -365,11 +377,11 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
       snap: tokenSnapshots,
       buyer: { id: topBuyer.id, name: topBuyer.name, handle: topBuyer.handle, wallet: topBuyer.wallet, avatar: topBuyer.avatar },
     })
-    .from(tokenSnapshots)
-    .innerJoin(tokens, eq(tokenSnapshots.tokenAddress, tokens.address))
+    .from(tokens)
+    .leftJoin(tokenSnapshots, and(eq(tokenSnapshots.tokenAddress, tokens.address), eq(tokenSnapshots.window, window)))
     .leftJoin(topBuyer, eq(tokenSnapshots.topBuyerId, topBuyer.id))
     .where(and(...where))
-    .orderBy(...order, asc(tokens.address))
+    .orderBy(...order.map(term => sql`${term} nulls last`), desc(tokens.lastActivityAt), asc(tokens.address))
     .limit(limit)
     .offset(Math.max(0, opts.offset ?? 0));
 
@@ -385,14 +397,14 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
     row.price ??= entry.token.price;
     row.fdv ??= entry.token.fdv;
   }
-  const enrichment = getProvider().isMock ? Promise.resolve(new Map()) : fetchMarketQuotes(rows.map((r) => r.token.address)).then(async (quotes) => {
+  const enrichment = getProvider().isMock || process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1' ? Promise.resolve(new Map()) : fetchMarketQuotes(rows.map((r) => r.token.address)).then(async (quotes) => {
     for (const { token } of rows) {
       const quote = quotes.get(token.address);
       if (quote) await db.update(tokens).set({ image: quote.image || sql`${tokens.image}`, price: quote.price ?? sql`${tokens.price}`, fdv: quote.fdv ?? sql`${tokens.fdv}`, marketCap: quote.marketCap ?? sql`${tokens.marketCap}`, volume24h: quote.volume24h ?? sql`${tokens.volume24h}`, priceChange24h: quote.priceChange24h ?? sql`${tokens.priceChange24h}` }).where(eq(tokens.address, token.address));
     }
     return quotes;
   }).catch(() => new Map());
-  if (process.env.VERCEL) after(async () => { await enrichment; });
+  if (process.env.VERCEL) { const { after } = await import("next/server"); after(async () => { await enrichment; }); }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const quotes = await Promise.race([enrichment, new Promise<Map<string, import("@/lib/providers/market-data").MarketQuote>>((resolve) => { timer = setTimeout(() => resolve(new Map()), 4000); })]).finally(() => { if (timer) clearTimeout(timer); });
   return rows.map(({ token, snap, buyer }) => {
@@ -410,6 +422,7 @@ function mapToken(
   rating?: { average: number | null; count: number },
 ): AnalystToken {
   return {
+    hasWindowActivity: Boolean(snap),
     ...tokenRef(token),
     category: assetCategory(token.symbol),
     price: token.price,

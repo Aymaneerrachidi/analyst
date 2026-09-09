@@ -1,4 +1,5 @@
 import { StatsSource } from "@/components/common/stats-source";
+import { TraderIntelligence } from "@/components/intelligence/trader-intelligence";
 import { RANKING_PERIODS } from "@/lib/providers/types";
 import { FilterTabs } from "@/components/ui/filter-tabs";
 import { Performance } from "@/components/tracking/performance";
@@ -63,6 +64,7 @@ export default async function TraderPage({ params, searchParams }: { params: Pro
 
   return (
     <div className="space-y-5 pt-5">
+      <TraderIntelligence address={trader.id} period={period} />
       {/* Header */}
       <section className="flex flex-col gap-6 border-b border-border pb-8 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">

@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 
 const { posts, comments, ratings, votes } = schema;
 
-export type LimitedAction = "post" | "comment" | "rating" | "vote" | "identity" | "report";
+export type LimitedAction = "post" | "comment" | "rating" | "vote" | "identity" | "report" | "research" | "preferences";
 
 interface Bucket {
   hits: number[];
@@ -18,6 +18,10 @@ const memory: LimiterState = g.__analystLimiter ?? (g.__analystLimiter = { bucke
 function windowFor(action: LimitedAction): { windowMs: number; limit: number } {
   const e = env();
   switch (action) {
+    case "research":
+      return { windowMs: 60 * 60_000, limit: 12 };
+    case "preferences":
+      return { windowMs: 10 * 60_000, limit: 60 };
     case "identity":
     case "report":
       return { windowMs: 60 * 60_000, limit: 10 };

@@ -5,6 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Star } from "lucide-react";
 import type { AnalystTokenRef } from "@/lib/types";
 import { TokenAvatar } from "@/components/common/avatar";
+import { savePreferences } from '@/lib/client/preference-sync';
 
 const key = "analyst:watchlist:v1";
 function subscribe(callback: () => void) {
@@ -25,6 +26,7 @@ export function WatchButton({ token }: { token: AnalystTokenRef }) {
     try {
       const next = saved ? items.filter((t) => t.address.toLowerCase() !== token.address.toLowerCase()) : [...items, { address: token.address.toLowerCase(), name: token.name, symbol: token.symbol, image: token.image }].slice(-200);
       localStorage.setItem(key, JSON.stringify(next)); window.dispatchEvent(new Event("analyst:watchlist"));
+      void savePreferences({ watchlist: next.map(t => t.address) });
       setError(false);
     } catch { setError(true); }
   }} className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs ${saved ? "border-neon/40 text-neon" : "border-border text-secondary hover:text-primary"}`}><Star className="h-3.5 w-3.5" fill={saved ? "currentColor" : "none"} />{saved ? "Watching" : "Watch"}</button>{error && <span role="status" className="max-w-40 text-[11px] text-warning">Allow browser storage to save tokens.</span>}</span>;

@@ -1,0 +1,22 @@
+{
+  "at": "2026-09-08T05:16:09.736Z",
+  "provider": "Uniswap V3",
+  "sellAmount": "10000000000000",
+  "buyAmount": "35562009274886591",
+  "minBuyAmount": "35384199228512158",
+  "routes": [
+    "Uniswap V3 · 0.3% pool fee"
+  ],
+  "direct": {
+    "kind": "uniswap-v3",
+    "factory": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+    "wrappedNative": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+    "fee": 3000,
+    "pool": "0xEd50bDeeA8aDC232f159486192a4157281D722ff",
+    "codeHash": "0x6f36c378e272c6324c48f045182bcb54bd8ad654cf9ebd42e8893d52c4cb25dc",
+    "block": 57433316,
+    "priceImpact": null,
+    "partialFill": false
+  },
+  "financialTransactionsSent": 0
+}

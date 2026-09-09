@@ -26,7 +26,7 @@ async function createPostgres(url: string): Promise<Db> {
   const postgres = (await import("postgres")).default;
   const client = postgres(url, { prepare: false, max: 10 });
   const db = drizzle(client, { schema });
-  if (!process.env.VERCEL) await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  if (!process.env.VERCEL && process.env.ANALYST_WORKER !== '1') await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   holder.driver = "postgres";
   return db as unknown as Db;
 }
@@ -55,16 +55,16 @@ async function createPglite(): Promise<Db> {
 export function getDb(): Promise<Db> {
   if (holder.db) {
     // Development hot reload preserves the connection, but must still apply new migrations.
-    if (holder.driver && holder.schemaVersion !== 2) {
+    if (holder.driver && holder.schemaVersion !== 3) {
       holder.schemaReady ??= (async () => {
         if (holder.driver === "pglite") {
           const { migrate } = await import("drizzle-orm/pglite/migrator");
           await migrate(holder.db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: MIGRATIONS_FOLDER });
-        } else {
+        } else if (!process.env.VERCEL && process.env.ANALYST_WORKER !== '1') {
           const { migrate } = await import("drizzle-orm/postgres-js/migrator");
           await migrate(holder.db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: MIGRATIONS_FOLDER });
         }
-        holder.schemaVersion = 2;
+        holder.schemaVersion = 3;
       })().finally(() => { holder.schemaReady = undefined; });
       return holder.schemaReady.then(() => holder.db!);
     }
@@ -75,7 +75,7 @@ export function getDb(): Promise<Db> {
     holder.ready = (url ? createPostgres(url) : createPglite())
       .then((db) => {
         holder.db = db;
-        holder.schemaVersion = 2;
+        holder.schemaVersion = 3;
         return db;
       })
       .catch((err) => {

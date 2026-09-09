@@ -43,6 +43,7 @@ export interface AnalystTrader extends AnalystTraderRef {
 }
 
 export interface AnalystTrade {
+  logIndex?: number;
   id: string;
   seq: number;
   traderId: string;
@@ -67,6 +68,7 @@ export interface ScoreBreakdown {
 }
 
 export interface AnalystToken extends AnalystTokenRef {
+  hasWindowActivity?: boolean;
   category?: "memes" | "stocks" | "stablecoins" | "other";
   fdv?: number | null;
   price?: number | null;
@@ -92,7 +94,10 @@ export interface AnalystToken extends AnalystTokenRef {
 }
 
 export interface Freshness {
-  provider: "mock" | "kolhood";
+  checkedAt?: string;
+  lastTradeAt?: string | null;
+  tradeAgeMs?: number | null;
+  provider: "mock" | "kolhood" | "chain";
   isMock: boolean;
   lastSyncAt: string | null;
   lastSyncOk: boolean;

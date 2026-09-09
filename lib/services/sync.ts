@@ -1,5 +1,4 @@
 import "server-only";
-import { after } from "next/server";
 import { acquireSyncLease } from "./sync-lock";
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb, dbDriver, schema, type Db } from "@/lib/db";
@@ -49,7 +48,7 @@ const g = globalThis as unknown as { __analystSync?: SyncState };
 const state: SyncState = g.__analystSync ?? (g.__analystSync = { lastRunAt: {} });
 
 async function waitForReadRefresh(work: Promise<unknown>): Promise<void> {
-  if (process.env.VERCEL) after(async () => { await work.catch(() => undefined); });
+  if (process.env.VERCEL) { const { after } = await import("next/server"); after(async () => { await work.catch(() => undefined); }); }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try { await Promise.race([work, new Promise<void>((resolve) => { timer = setTimeout(resolve, 3000); })]); }
   finally { if (timer) clearTimeout(timer); }
@@ -567,6 +566,7 @@ async function enrichMarketData(db: Db, limit: number): Promise<void> {
 
 /** On-demand quote for a single token page; refreshes when the stored quote is missing or older than 5 minutes. */
 export async function refreshTokenMarketData(address: string): Promise<void> {
+  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') return;
   if (!marketDataEnabled() || getProvider().isMock) return;
   try {
     const db = await getDb();
@@ -633,6 +633,8 @@ async function saveProfile(db: Db, p: UpstreamTraderProfile): Promise<number> {
 
 /** Fetch history on demand for any wallet, including those outside the leaderboard. */
 export async function refreshTraderProfiles(wallets: string[]): Promise<void> {
+  if (getProvider().name === "chain") return;
+  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== "1") return;
   if (process.env.VERCEL) return; // Scheduled full sync owns profile writes on multiple instances.
   if (getProvider().isMock || wallets.length === 0) return;
   if (state.inflight || state.profileRefresh) return;
@@ -653,6 +655,7 @@ export async function refreshTraderProfiles(wallets: string[]): Promise<void> {
 }
 
 export async function refreshTokenTraders(address: string): Promise<void> {
+  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') return;
   if (getProvider().isMock) return;
   const db = await getDb();
   const rows = await db.select({ wallet: traderTokenStats.traderId }).from(traderTokenStats)
@@ -757,13 +760,14 @@ async function tradesSync(db: Db): Promise<number> {
 }
 
 export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
+  if (getProvider().name === "chain") throw new Error("Legacy sync disabled: the chain worker owns ingestion");
   if (state.profileRefresh) await state.profileRefresh;
   if (state.inflight) return state.inflight;
   const started = Date.now();
   const provider = getProvider();
   state.inflight = (async () => {
     const db = await getDb();
-    const release = process.env.VERCEL ? await acquireSyncLease() : undefined;
+    const release = process.env.VERCEL || process.env.ANALYST_WORKER === "1" ? await acquireSyncLease() : undefined;
     if (release === null) {
       return { kind, provider: provider.name, tradesUpserted: 0, durationMs: Date.now() - started };
     }
@@ -775,8 +779,8 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
     try {
       const inserted = kind === "full" ? await fullSync(db) : await tradesSync(db);
       try {
-        const { publishSystemEvent } = await import("@/lib/social/system-events");
-        await publishSystemEvent();
+        if (process.env.ANALYST_WORKER !== "1") { const { publishSystemEvent } = await import("@/lib/social/system-events");
+        await publishSystemEvent(); }
       } catch {
         console.error("System event generation failed; market sync continues.");
       }
@@ -813,6 +817,7 @@ export async function runSync(kind: "full" | "trades"): Promise<SyncResult> {
 
 /** Runs the first full sync when the database is empty. Safe to call on every request. */
 export async function ensureBootstrapped(): Promise<void> {
+  if (getProvider().name === "chain") return;
   if (process.env.VERCEL) return;
   if (!state.bootstrapped) {
     state.bootstrapped = (async () => {
@@ -839,6 +844,8 @@ export async function ensureBootstrapped(): Promise<void> {
  * without a scheduler; errors are swallowed so reads never fail because upstream hiccuped.
  */
 export async function ensureFresh(kind: "full" | "trades", maxAgeMs: number): Promise<void> {
+  if (getProvider().name === "chain") return;
+  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') return;
   if (process.env.VERCEL) return; // The external scheduler owns ingestion; reads never bootstrap a full job.
   try {
     await ensureBootstrapped();
@@ -869,6 +876,20 @@ export async function ensureFresh(kind: "full" | "trades", maxAgeMs: number): Pr
 export async function getFreshness(): Promise<Freshness> {
   const db = await getDb();
   const provider = getProvider();
+  if (provider.name === "chain") {
+    const { readCursor } = await import("@/lib/indexer/store");
+    const [cursor, latest, counts] = await Promise.all([
+      readCursor(),
+      db.select({ at: schema.chainSwaps.timestamp }).from(schema.chainSwaps).orderBy(desc(schema.chainSwaps.timestamp)).limit(1),
+      db.select({ count: sql<number>`count(*)::int` }).from(traders),
+    ]);
+    const ageMs = cursor ? Math.max(0, Date.now() - cursor.updatedAt.getTime()) : null;
+    return { provider: "chain", isMock: false, checkedAt: new Date().toISOString(),
+      lastTradeAt: latest[0]?.at.toISOString() ?? null, tradeAgeMs: latest[0] ? Math.max(0, Date.now() - latest[0].at.getTime()) : null,
+      lastSyncAt: cursor?.updatedAt.toISOString() ?? null, ageMs,
+      lastSyncOk: cursor?.status === "live", status: ageMs === null ? "offline" : ageMs < 60000 && cursor?.status === "live" ? "live" : "delayed",
+      trackedTraders: Number(counts[0]?.count ?? 0) };
+  }
   const [last] = await db
     .select({ finishedAt: dataSourceSyncs.finishedAt, status: dataSourceSyncs.status })
     .from(dataSourceSyncs)
@@ -885,13 +906,18 @@ export async function getFreshness(): Promise<Freshness> {
   const at = lastOk?.finishedAt ?? null;
   const ageMs = at ? Date.now() - at.getTime() : null;
   const status: Freshness["status"] = ageMs === null ? "offline" : ageMs <= LIVE_MAX_AGE_MS ? "live" : "delayed";
+  const [latestTrade] = await db.select({ timestamp: trades.timestamp }).from(trades).orderBy(desc(trades.timestamp)).limit(1);
+  const tradeAgeMs = latestTrade ? Math.max(0, Date.now() - latestTrade.timestamp.getTime()) : null;
   return {
+    checkedAt: new Date().toISOString(),
+    lastTradeAt: latestTrade?.timestamp.toISOString() ?? null,
+    tradeAgeMs,
     provider: provider.name,
     isMock: provider.isMock,
     lastSyncAt: at ? at.toISOString() : null,
     lastSyncOk: last?.status === "ok",
     ageMs,
-    status,
+    status: status === "live" && (tradeAgeMs == null || tradeAgeMs > 600000) ? "delayed" : status,
     trackedTraders: Number(count ?? 0),
   };
 }

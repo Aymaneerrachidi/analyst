@@ -32,15 +32,22 @@ export function parseLiveTrade(value: unknown): AnalystTrade | null {
 }
 
 export function tradeIdentity(t: AnalystTrade): string {
+  const base = transactionIdentity(t);
+  return t.logIndex == null ? base : `${base}:log:${t.logIndex}`;
+}
+function transactionIdentity(t: AnalystTrade): string {
   return t.txHash ? `${t.txHash.toLowerCase()}:${t.traderId.toLowerCase()}:${t.token.address.toLowerCase()}:${t.side}` : t.id;
 }
 
 /** Stream IDs and database IDs differ; reconcile by chain identity without moving the database cursor. */
 export function mergeLiveTrades(current: AnalystTrade[], incoming: AnalystTrade[], limit: number): AnalystTrade[] {
-  const map = new Map(current.map(t => [tradeIdentity(t), t]));
+  // Canonical receipt fills replace an upstream transaction aggregate; preserve each log.
+  const canonical = new Set([...current, ...incoming].filter(t => t.logIndex != null).map(transactionIdentity));
+  const keep = (t: AnalystTrade) => t.logIndex != null || !canonical.has(transactionIdentity(t));
+  const map = new Map(current.filter(keep).map(t => [tradeIdentity(t), t]));
   const traders = new Map(current.map(t => [t.traderId, t.trader]));
   const tokens = new Map(current.map(t => [t.token.address, t.token]));
-  for (const t of incoming) {
+  for (const t of incoming.filter(keep)) {
     const key = tradeIdentity(t), previous = map.get(key);
     if (previous) {
       const stored = t.seq > 0 ? t : previous;

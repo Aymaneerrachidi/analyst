@@ -9,10 +9,21 @@
 import "server-only";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { v2Config } from "@/lib/v2/config";
 import { fetchGeckoTokens } from "./geckoterminal";
 import { fetchLaunchpadToken } from "./launchpad";
 
 export interface MarketQuote {
+  source?: string;
+  observedAt?: string;
+  volume5m?: number | null;
+  volume1h?: number | null;
+  volume6h?: number | null;
+  priceChange5m?: number | null;
+  priceChange1h?: number | null;
+  buys5m?: number | null;
+  sells5m?: number | null;
+  pairAddress?: string;
   address: string;
   price: number | null;
   marketCap: number | null;
@@ -34,8 +45,10 @@ const pairSchema = z.object({
   chainId: z.string(),
   baseToken: z.object({ address: z.string(), name: z.string().nullish(), symbol: z.string().nullish() }),
   priceUsd: num.nullish(),
-  volume: z.object({ h24: num.nullish() }).nullish(),
-  priceChange: z.object({ h24: num.nullish() }).nullish(),
+  pairAddress: z.string().optional(),
+  volume: z.object({ h24: num.nullish(), h1: num.nullish(), h6: num.nullish(), m5: num.nullish() }).nullish(),
+  priceChange: z.object({ h24: num.nullish(), h1: num.nullish(), m5: num.nullish() }).nullish(),
+  txns: z.object({ m5: z.object({ buys: num.nullish(), sells: num.nullish() }).nullish() }).nullish(),
   liquidity: z.object({ usd: num.nullish() }).nullish(),
   marketCap: num.nullish(),
   fdv: num.nullish(),
@@ -56,7 +69,7 @@ export function marketDataEnabled(): boolean {
 
 async function fetchBatch(addresses: string[]): Promise<Map<string, MarketQuote>> {
   const chain = env().MARKET_DATA_CHAIN;
-  const url = `https://api.dexscreener.com/tokens/v1/${encodeURIComponent(chain)}/${addresses.join(",")}`;
+  const url = `${v2Config().DEXSCREENER_BASE_URL.replace(/\/$/, "")}/tokens/v1/${encodeURIComponent(chain)}/${addresses.join(",")}`;
   const res = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`Dexscreener ${res.status}`);
   const parsed = responseSchema.safeParse(await res.json());
@@ -70,11 +83,19 @@ async function fetchBatch(addresses: string[]): Promise<Map<string, MarketQuote>
     const prev = out.get(address);
     if (prev && prev.liquidityUsd >= liquidityUsd) continue;
     out.set(address, {
-      address,
+      address, source: "Dexscreener", observedAt: new Date().toISOString(),
       price: pair.priceUsd ?? null,
       marketCap: pair.marketCap ?? null,
       fdv: pair.fdv ?? null,
       volume24h: pair.volume?.h24 ?? null,
+      volume5m: pair.volume?.m5 ?? null,
+      volume1h: pair.volume?.h1 ?? null,
+      volume6h: pair.volume?.h6 ?? null,
+      priceChange5m: pair.priceChange?.m5 ?? null,
+      priceChange1h: pair.priceChange?.h1 ?? null,
+      buys5m: pair.txns?.m5?.buys ?? null,
+      sells5m: pair.txns?.m5?.sells ?? null,
+      pairAddress: pair.pairAddress,
       priceChange24h: pair.priceChange?.h24 ?? null,
       name: pair.baseToken.name ?? undefined,
       symbol: pair.baseToken.symbol ?? undefined,
@@ -107,7 +128,7 @@ export async function fetchMarketQuotes(addresses: string[], includeLaunchpad = 
       if (gecko.status === "fulfilled") {
         for (const [address, token] of gecko.value) {
           const existing = quotes.get(address);
-          quotes.set(address, existing ? { ...existing, price: existing.price ?? token.price, marketCap: existing.marketCap ?? token.marketCap, fdv: existing.fdv ?? token.fdv, volume24h: existing.volume24h ?? token.volume24h, priceChange24h: existing.priceChange24h ?? token.priceChange24h ?? null, image: existing.image || token.image, name: token.name || existing.name } : { ...token, priceChange24h: token.priceChange24h ?? null });
+          quotes.set(address, existing ? { ...existing, price: existing.price ?? token.price, marketCap: existing.marketCap ?? token.marketCap, fdv: existing.fdv ?? token.fdv, volume24h: existing.volume24h ?? token.volume24h, priceChange24h: existing.priceChange24h ?? token.priceChange24h ?? null, image: existing.image || token.image, name: token.name || existing.name } : { ...token, source: "GeckoTerminal", observedAt: new Date().toISOString(), priceChange24h: token.priceChange24h ?? null });
         }
       }
       if (dex.status === "rejected" && gecko.status === "rejected") throw dex.reason;
@@ -117,7 +138,7 @@ export async function fetchMarketQuotes(addresses: string[], includeLaunchpad = 
         for (const token of launchpad) {
           if (!token) continue;
           const previous = quotes.get(token.address);
-          quotes.set(token.address, { address: token.address, name: token.name, symbol: token.symbol, marketCap: previous?.marketCap ?? null, price: previous?.price ?? token.price, fdv: previous?.fdv ?? token.fdv, volume24h: previous?.volume24h ?? null, priceChange24h: previous?.priceChange24h ?? null, liquidityUsd: previous?.liquidityUsd ?? 0, image: previous?.image || token.image });
+          quotes.set(token.address, { ...previous, source: previous?.source ?? "Pons launchpad", observedAt: previous?.observedAt ?? new Date().toISOString(), address: token.address, name: token.name, symbol: token.symbol, marketCap: previous?.marketCap ?? null, price: previous?.price ?? token.price, fdv: previous?.fdv ?? token.fdv, volume24h: previous?.volume24h ?? null, priceChange24h: previous?.priceChange24h ?? null, liquidityUsd: previous?.liquidityUsd ?? 0, image: previous?.image || token.image });
         }
       }
       for (const a of batch) {

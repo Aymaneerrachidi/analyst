@@ -1,15 +1,17 @@
 "use client";
+import { validateDirectExecution, verifyDirectRoute } from "@/lib/trading/direct-shared";
+import { permit2Abi } from '@/lib/trading/v4-shared';
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, RefreshCw, Wallet } from "lucide-react";
 import { createPublicClient, custom, encodeFunctionData, erc20Abi, formatUnits, http, toHex, type Address, type EIP1193Provider, type Hex } from "viem";
-import { ALLOWANCE_HOLDER, SETTLER_REGISTRY, registryAbi, robinhood, sameAddress, umbraLink, unitsExact, validateExecution, type TradeAssets, type TradeInput, type TradeQuote } from "@/lib/trading/shared";
+import { robinhood, sameAddress, unitsExact, type TradeAssets, type TradeInput, type TradeQuote } from "@/lib/trading/shared";
 
 type Provider = EIP1193Provider & { on?: (event: string, fn: (...args: unknown[]) => void) => void; removeListener?: (event: string, fn: (...args: unknown[]) => void) => void };
 type WalletOption = { info: { uuid: string; name: string }; provider: Provider };
-type Prepared = { to: Address; data: Hex; value: Hex; gas: Hex; maxFeePerGas: Hex; maxPriorityFeePerGas: Hex; fee: string; action: "swap" | "approve" | "reset" };
-type Receipt = { hash: Hex; status: "pending" | "success" | "reverted"; action: Prepared["action"] };
+type Prepared = { to: Address; data: Hex; value: Hex; gas: Hex; maxFeePerGas: Hex; maxPriorityFeePerGas: Hex; fee: string; action: "swap" | "approve" | "reset" | "permit" };
+type Receipt = { hash: Hex; status: "pending" | "success" | "reverted"; action: Prepared["action"]; wallet?: Address; token?: Address };
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetch(url, { ...options, cache: "no-store" }); const data = await r.json();
   if (!r.ok) throw new Error(data.error || "Trading is temporarily unavailable."); return data;
@@ -27,7 +29,7 @@ function amountText(value: string, decimals: number) {
 function requireFreshQuote(quote: TradeQuote) {
   if (Date.now() >= quote.expiresAt) throw new Error("Quote expired. Review again before signing.");
 }
-export function TradePanel({ address, symbol }: { address: string; symbol: string }) {
+export function TradePanel({ address, symbol, risk }: { address: string; symbol: string; risk?: { level: string; score: number | null; at: string | null } }) {
   const token = address.toLowerCase() as Address;
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
@@ -42,6 +44,7 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
   const [review, setReview] = useState<TradeQuote>();
   const [prepared, setPrepared] = useState<Prepared>();
   const [receipt, setReceipt] = useState<Receipt>();
+  const [positionStatus, setPositionStatus] = useState("");
   const [now, setNow] = useState(0);
   const generation = useRef(0);
   const mounted = useRef(true);
@@ -125,19 +128,26 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
       const q = await api<TradeQuote>("/api/trading", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...input, mode: "review" }) });
       active(id);
       const client = createPublicClient({ chain: robinhood, transport: custom(provider, { retryCount: 0 }) });
-      const current = await client.readContract({ address: SETTLER_REGISTRY, abi: registryAbi, functionName: "ownerOf", args: [BigInt(2)] });
-      const previous = await client.readContract({ address: SETTLER_REGISTRY, abi: registryAbi, functionName: "prev", args: [BigInt(2)] });
-      validateExecution(q, account, [current, previous]);
+      await verifyDirectRoute(client, q);
+      validateDirectExecution(q, account);
       if (!sameAddress(q.sellToken, sell!.address) || !sameAddress(q.buyToken, buy!.address) || q.sellAmount !== baseAmount!.toString()) throw new Error("Quote did not match your trade.");
+      if (BigInt(q.minBuyAmount) < BigInt(q.buyAmount) * BigInt(10000 - slippageBps) / BigInt(10000)) throw new Error('Quote exceeded your slippage limit.');
       let action: Prepared["action"] = "swap";
       let tx = q.transaction!;
       const nativeBalance = await client.getBalance({ address: account });
       if (side === "sell") {
-        const [balance, allowance] = await Promise.all([client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [account] }), client.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [account, ALLOWANCE_HOLDER] })]);
+        const [balance, allowance] = await Promise.all([client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [account] }), client.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [account, q.spender!] })]);
         if (balance < baseAmount!) throw new Error("Insufficient token balance.");
         if (allowance < baseAmount!) {
           action = allowance > BigInt(0) ? "reset" : "approve";
-          tx = { to: token, value: "0", data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [ALLOWANCE_HOLDER, action === "reset" ? BigInt(0) : baseAmount!] }) };
+          tx = { to: token, value: "0", data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [q.spender!, action === "reset" ? BigInt(0) : baseAmount!] }) };
+        }
+        if (action === 'swap' && q.direct?.kind === 'uniswap-v4') {
+          const permission = await client.readContract({ address: q.spender!, abi: permit2Abi, functionName: 'allowance', args: [account, token, q.transaction!.to] });
+          if (permission[0] < baseAmount! || permission[1] < Math.floor(q.expiresAt / 1000)) {
+            action = 'permit';
+            tx = { to: q.spender!, value: '0', data: encodeFunctionData({ abi: permit2Abi, functionName: 'approve', args: [token, q.transaction!.to, baseAmount!, Math.floor(q.expiresAt / 1000) + 240] }) };
+          }
         }
       }
       const call = { account, to: tx.to, data: tx.data, value: BigInt(tx.value) };
@@ -147,9 +157,9 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
       const gas = estimate * BigInt(120) / BigInt(100);
       if (nativeBalance < BigInt(tx.value) + gas * fees.maxFeePerGas) throw new Error("Not enough ETH for this trade and network gas.");
       const simulation = await client.call({ ...call, ...fees, gas });
-      if (action !== "swap" && simulation.data && simulation.data !== "0x" && BigInt(simulation.data) === BigInt(0)) throw new Error("This token rejected its approval.");
+      if ((action === 'approve' || action === 'reset') && simulation.data && simulation.data !== "0x" && BigInt(simulation.data) === BigInt(0)) throw new Error("This token rejected its approval.");
       await walletMatches(provider, account, id);
-      validateExecution(q, account, [current, previous]);
+      validateDirectExecution(q, account);
       setReview(q); setPrepared({ to: tx.to, data: tx.data, value: toHex(BigInt(tx.value)), gas: toHex(gas), maxFeePerGas: toHex(fees.maxFeePerGas), maxPriorityFeePerGas: toHex(fees.maxPriorityFeePerGas), fee: (gas * fees.maxFeePerGas).toString(), action });
     } catch (e) { if (id === generation.current) setError(readable(e)); } finally { setBusy(""); }
   }
@@ -160,6 +170,21 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
       const result = await client.waitForTransactionReceipt({ hash: value.hash, confirmations: 1, timeout: 90_000, pollingInterval: 2000 });
       if (!mounted.current) return;
       setReceipt({ ...value, status: result.status });
+      if (result.status === 'success' && value.action === 'swap' && value.wallet && value.token) {
+        // Additional finality is checked by the server; retry without asking the wallet to sign anything.
+        setPositionStatus('Verifying position finality...');
+        void (async () => {
+          for (let i = 0; i < 12 && mounted.current; i++) {
+            try {
+              const r = await fetch('/api/positions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ hash: value.hash, wallet: value.wallet, token: value.token }) });
+              if (r.ok && r.status !== 202) { if (mounted.current) setPositionStatus('Position verified and saved.'); return; }
+              if (r.status !== 202) break;
+            } catch { break; }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          if (mounted.current) setPositionStatus('Swap confirmed; position recording needs a retry. Check status again to retry without signing.');
+        })();
+      }
       invalidate();
       if (result.status === "reverted") setError("Transaction reverted. Gas may have been charged. Review a fresh quote before trying again.");
       void assets.refetch();
@@ -174,9 +199,8 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
       await walletMatches(p, a, id);
       requireFreshQuote(q);
       const client = createPublicClient({ chain: robinhood, transport: custom(p, { retryCount: 0 }) });
-      const current = await client.readContract({ address: SETTLER_REGISTRY, abi: registryAbi, functionName: "ownerOf", args: [BigInt(2)] });
-      const previous = await client.readContract({ address: SETTLER_REGISTRY, abi: registryAbi, functionName: "prev", args: [BigInt(2)] });
-      validateExecution(q, a, [current, previous]);
+      await verifyDirectRoute(client, q);
+      validateDirectExecution(q, a);
       const { action: _action, fee: _fee, ...transaction } = plan;
       void _action; void _fee;
       await p.request({ method: "eth_call", params: [{ ...transaction, from: a }, "latest"] });
@@ -184,7 +208,7 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
       requireFreshQuote(q);
       const hash = await p.request({ method: "eth_sendTransaction", params: [{ ...transaction, from: a, chainId: toHex(robinhood.id) }] });
       // Preserve the hash even if the wallet changed while its confirmation dialog was open.
-      const pending: Receipt = { hash, status: "pending", action: plan.action };
+      const pending: Receipt = { hash, status: "pending", action: plan.action, wallet: a, token };
       setReceipt(pending); setReview(undefined); setPrepared(undefined); setBusy("");
       void checkReceipt(pending);
     } catch (e) { setError(readable(e)); setReview(undefined); setPrepared(undefined); } finally { signing.current = false; setBusy(""); }
@@ -227,10 +251,14 @@ export function TradePanel({ address, symbol }: { address: string; symbol: strin
           <div className="flex justify-between gap-3"><dt className="text-muted">Quote</dt><dd className={expired ? "text-negative" : "text-secondary"}>{expired ? "Expired — refresh" : `${Math.min(60, Math.max(0, Math.ceil((quote.expiresAt - now) / 1000)))}s remaining`}</dd></div>
         </dl>}
         {(error || amountError || insufficient || assets.error || preview.error) && <p role="alert" className="break-words rounded-lg border border-negative/20 bg-negative/5 p-3 text-xs text-negative">{error || amountError || (insufficient ? `Insufficient ${inputSymbol} balance.` : assets.error ? readable(assets.error) : readable(preview.error))}</p>}
-        {wrongChain ? <button disabled={locked} onClick={() => void switchChain()} className="min-h-11 w-full rounded-lg bg-neon px-3 text-sm font-semibold text-black">Switch to Robinhood Chain</button> : assets.data?.executionEnabled ? <button disabled={locked || !account || !baseAmount || Boolean(insufficient) || (Boolean(review) && expired)} onClick={() => void (prepared && review ? confirm() : prepareReview())} className="min-h-11 w-full rounded-lg bg-neon px-3 text-sm font-semibold text-black disabled:opacity-40">{busy || (receipt?.status === "pending" ? "Waiting for confirmation…" : !account ? "Connect wallet to trade" : prepared?.action === "reset" ? "Reset token allowance" : prepared?.action === "approve" ? `Approve ${inputSymbol}` : prepared ? "Confirm swap in wallet" : "Review trade")}</button> : quote && !expired ? <a href={umbraLink(input)} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-neon px-3 text-sm font-semibold text-black">Continue on Umbra <ArrowUpRight size={15} /></a> : <p className="text-xs text-muted">{preview.isFetching ? "Finding a live route…" : "Enter an amount to check live liquidity."}</p>}
+        {wrongChain ? <button disabled={locked} onClick={() => void switchChain()} className="min-h-11 w-full rounded-lg bg-neon px-3 text-sm font-semibold text-black">Switch to Robinhood Chain</button> : assets.data?.executionEnabled ? <button disabled={locked || !account || !baseAmount || Boolean(insufficient) || (Boolean(review) && expired)} onClick={() => void (prepared && review ? confirm() : prepareReview())} className="min-h-11 w-full rounded-lg bg-neon px-3 text-sm font-semibold text-black disabled:opacity-40">{busy || (receipt?.status === "pending" ? "Waiting for confirmation…" : !account ? "Connect wallet to trade" : prepared?.action === "reset" ? "Reset token allowance" : prepared?.action === "permit" ? "Authorize V4 route for 5 minutes" : prepared?.action === "approve" ? `Approve ${inputSymbol}` : prepared ? "Confirm swap in wallet" : "Review trade")}</button> : <p className="text-xs text-muted">{preview.isFetching ? "Finding a live route…" : "Enter an amount to check live liquidity."}</p>}
         {review && <button disabled={locked} onClick={invalidate} className="min-h-8 w-full text-xs text-secondary">{expired ? "Refresh review" : "Back to quote"}</button>}
-        {prepared && prepared.action !== "swap" && <p className="text-xs text-secondary">{prepared.action === "reset" ? "This token needs its existing allowance reset before an exact approval." : `Approve only ${amount} ${inputSymbol} for 0x AllowanceHolder.`} The swap needs a separate confirmation after approval.</p>}
-        {assets.data && !assets.data.executionEnabled && <p className="text-xs leading-relaxed text-muted">Live quote preview. In-app execution is coming soon. Umbra will refresh the price before you trade there.</p>}
+        {quote?.direct?.partialFill && <p className="text-xs leading-relaxed text-warning">Pons can partially fill a buy near graduation and refund unused ETH. The minimum shown is a full-input price bound; a partial fill can return fewer tokens at that protected rate. This curve has no on-chain deadline.</p>}
+        {quote?.direct && <p className="text-xs text-secondary">Quote block {quote.direct.block}. Estimated price impact: {quote.direct.priceImpact == null ? "not measured" : `${quote.direct.priceImpact.toFixed(2)}%`}. Actual wallet simulation is required before signing.</p>}
+        {prepared && prepared.action !== "swap" && <p className="text-xs text-secondary">{prepared.action === "permit" ? "Authorize only this exact token amount for the verified V4 router, expiring in five minutes." : prepared.action === "reset" ? "This token needs its existing allowance reset before an exact approval." : `Approve only ${amount} ${inputSymbol} for the verified ${review?.provider ?? "direct"} contract.`} The swap needs a separate confirmation after approval.</p>}
+        {assets.data && !assets.data.executionEnabled && <p className="text-xs leading-relaxed text-muted">Direct trading is not configured for this deployment. Verified contract settings are required before wallet execution is enabled.</p>}
+        {review && <p className="rounded-lg border border-border p-3 text-xs leading-relaxed text-secondary">Risk: {risk?.level ?? 'UNKNOWN'}{risk?.score != null ? ` (${risk.score}/100)` : ''}. {risk?.at ? `Observed ${risk.at}.` : 'No recent contract risk assessment is available.'} A successful simulation does not establish token safety.</p>}
+        {positionStatus && <p role="status" className="text-xs text-secondary">{positionStatus} {account && <a className="text-neon underline" href={`/positions?wallet=${account}`}>View positions</a>}{positionStatus.includes('retry') && receipt && <button className="ml-2 underline" onClick={() => void checkReceipt(receipt)}>Retry position check</button>}</p>}
         {receipt && <div role="status" className="rounded-lg border border-border p-3 text-xs"><p>{receipt.action === "swap" ? "Swap" : "Token approval"}: {receipt.status === "success" ? "confirmed" : receipt.status}.</p><a className="mt-1 inline-flex items-center gap-1 text-neon" href={`${robinhood.blockExplorers.default.url}/tx/${receipt.hash}`} target="_blank" rel="noopener noreferrer">View transaction <ArrowUpRight size={12} /></a>{receipt.status === "pending" && <button className="ml-3 text-secondary" onClick={() => void checkReceipt(receipt)}>Check status</button>}{receipt.status === "success" && receipt.action !== "swap" && <p className="mt-2 text-secondary">Review a fresh quote to continue.</p>}</div>}
       </div>
     </div>
