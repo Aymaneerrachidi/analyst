@@ -14,8 +14,11 @@ async function main() {
   const input = snapshot.parse(JSON.parse(fs.readFileSync(file, "utf8")));
   config({ path: envFile, quiet: true });
   const { getDb, schema } = await import("../lib/db");
-  const { sql } = await import("drizzle-orm");
+  const { eq, sql } = await import("drizzle-orm");
   const db = await getDb();
+  const [policy] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, "tracking:source-policy"));
+  const allowed = (policy?.value as { sources?: string[] } | undefined)?.sources;
+  if (allowed && !allowed.includes(input.source.toLowerCase())) throw new Error("Source excluded by tracking policy");
   const rows = [...new Map(input.rows.map((r) => [r.wallet, r])).values()];
   const existing = new Set((await db.select({ id: schema.traders.id }).from(schema.traders)).map((r) => r.id.toLowerCase()));
   const report = { source: input.source, capturedAt: input.capturedAt, wallets: rows.length, added: rows.filter((r) => !existing.has(r.wallet)).length, existing: rows.filter((r) => existing.has(r.wallet)).length, mode };

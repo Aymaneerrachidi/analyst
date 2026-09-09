@@ -1,5 +1,7 @@
 # Free Robinhood wallet sources — September 9, 2026
 
+Later roster decision: the user restricted tracking to KOLHOOD and Defined. Production now tracks **211** wallets. The 49 identities contributed only by Kolosseum/Stalkchain were archived in `app_meta` and removed from the tracked roster after checking that they had no trades, ranking snapshots or trader-token statistics. Wallet records and source provenance remain stored. `tracking:source-policy` prevents this importer from adding excluded sources again. The import counts below describe the earlier discovery run.
+
 Live HTTP/browser checks, approximately 04:14–04:22 UTC. Availability is a point-in-time observation, not a service guarantee.
 
 | Source | Verified result | Suitable use |
