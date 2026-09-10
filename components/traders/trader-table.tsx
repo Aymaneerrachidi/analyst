@@ -77,7 +77,7 @@ export function TraderTable({ traders, emptyTitle = "No ranked traders for this 
                     <Rating value={t.communityRating} count={t.ratingCount} />
                   </td>}
                   <td className={cn(CELL, "text-right font-medium")}>
-                    <MoneyDelta value={t.realizedPnl} />
+                    <MoneyDelta value={t.realizedPnl} />{t.basisIncomplete && <span className="block text-[10px] font-normal text-muted" title="Earlier purchases are missing from the source history. Realized profit may be overstated.">Partial cost basis</span>}
                   </td>
                   <td className={cn(CELL, "text-right")}>
                     <PctDelta value={t.roi} />

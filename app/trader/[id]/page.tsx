@@ -110,7 +110,7 @@ export default async function TraderPage({ params, searchParams }: { params: Pro
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-medium">Source performance</h2><StatsSource trader={trader} /></div><FilterTabs value={period} options={RANKING_PERIODS.map(p => ({ value: p, label: RANK_LABEL[p], href: `/trader/${trader.id}?period=${p}` }))} ariaLabel="Profile ranking period" /></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-medium">Source performance</h2><StatsSource trader={trader} /></div><FilterTabs value={period} options={RANKING_PERIODS.filter(p => p !== "all").map(p => ({ value: p, label: RANK_LABEL[p], href: `/trader/${trader.id}?period=${p}` }))} ariaLabel="Profile ranking period" /></div>
       <p className="text-xs text-secondary">These metrics use the same period snapshot as the leaderboard. Recorded-swap calculations below cover partial history and are labeled separately.</p>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricCard label="Source PnL" value={<MoneyDelta value={trader.realizedPnl} />}><StatsSource trader={trader} /></MetricCard>

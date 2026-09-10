@@ -3,7 +3,7 @@ import { sourceNumber } from './defined-import';
 
 const record = z.object({ address: z.string().regex(/^0x[\da-f]{40}$/i), networkId: z.literal(4663) }).passthrough();
 export const rankingPeriods = { '24h': '1d', '7d': '1w', '30d': '30d' } as const;
-export type RankingMetric = { wallet: string; period: keyof typeof rankingPeriods; pnl: number; roi: number | null; winRate: number | null; trades: number | null; volumeUsd: number | null; buys?: number; sells?: number; bestTradeUsd?: number | null };
+export type RankingMetric = { wallet: string; period: keyof typeof rankingPeriods; pnl: number; roi: number | null; winRate: number | null; trades: number | null; volumeUsd: number | null; buys?: number; sells?: number; bestTradeUsd?: number | null; source?: 'Defined' | 'Stalkchain' | 'Analyst tracked'; observedAt?: string; basisIncomplete?: boolean };
 export function normalizeLeaderboard(input: unknown): RankingMetric[] {
   const rows = z.array(record).parse(input); const result = new Map<string, RankingMetric>();
   for (const row of rows) for (const [period, suffix] of Object.entries(rankingPeriods)) {

@@ -1,70 +1,18 @@
-"use client";
-
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/client/fetcher";
-import type { Freshness } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { Tip } from "@/components/ui/tooltip";
-import { useTradeStream } from "@/components/live/stream-provider";
-
+﻿"use client";
+import { useQuery } from '@tanstack/react-query';
+import { apiGet } from '@/lib/client/fetcher';
+import type { Freshness } from '@/lib/types';
+import { cn } from '@/lib/utils';
 export function useFreshness(initial?: Freshness) {
-  return useQuery({
-    queryKey: ["freshness"],
-    queryFn: () => apiGet<Freshness>("/api/freshness"),
-    initialData: initial,
-    refetchInterval: 15_000,
-    staleTime: 10_000,
-  });
+  return useQuery({ queryKey: ['freshness'], queryFn: () => apiGet<Freshness>('/api/freshness'), initialData: initial, refetchInterval: 15_000, staleTime: 10_000 });
 }
-
-const LABELS = {
-  live: { text: "LIVE", dot: "bg-neon", textClass: "text-neon", animate: true },
-  delayed: { text: "DELAYED", dot: "bg-warning", textClass: "text-warning", animate: false },
-  offline: { text: "OFFLINE", dot: "bg-muted", textClass: "text-muted", animate: false },
-  connecting: { text: "CONNECTING", dot: "bg-warning", textClass: "text-warning", animate: false },
-  reconnecting: { text: "RECONNECTING", dot: "bg-warning", textClass: "text-warning", animate: false },
-} as const;
-
-export function LiveIndicator({
-  initial,
-  showTracked,
-  size = "sm",
-  className,
-}: {
-  initial?: Freshness;
-  showTracked?: boolean;
-  size?: "sm" | "md";
-  className?: string;
-}) {
+export function LiveIndicator({ initial, showTracked, className }: { initial?: Freshness; showTracked?: boolean; size?: 'sm' | 'md'; className?: string }) {
   const { data } = useFreshness(initial);
-  const stream = useTradeStream();
-  const connecting = stream.enabled && stream.status === "connecting";
-  const status = data?.provider !== "kolhood" && data?.status && data.status !== "live" ? data.status : stream.enabled && !connecting ? stream.status : data?.status ?? "offline";
-  const newest = Math.max(Date.parse(data?.lastTradeAt ?? '') || 0, ...stream.trades.map(t => Date.parse(t.timestamp) || 0));
-  const quiet = data?.provider === "kolhood" && data?.checkedAt && newest > 0 && Date.parse(data.checkedAt) - newest > 600000;
-  const meta = quiet ? LABELS.delayed : connecting ? LABELS.offline : LABELS[status];
-  const ageSec = data?.ageMs !== null && data?.ageMs !== undefined ? Math.round(data.ageMs / 1000) : null;
-  const tip =
-    quiet ? `No new recorded trades for over ten minutes. Latest stored trade: ${data?.lastTradeAt ?? "unknown"}. A successful sync does not prove fresh source activity.` : connecting ? `Last stored sync: ${data?.lastSyncAt ?? "not yet available"}. Establishing the live connection.` : stream.enabled ? (status === "live" ? "Connected to the shared trade stream. Trades appear as the source broadcasts them; analytics update separately." : status === "delayed" ? "The source is behind the chain. New records appear as they arrive; timestamps retain the original trade time." : "Reconnecting to the live source. Saved trades remain visible.") : status === "live"
-      ? `Feed synced ${ageSec ?? 0}s ago from ${data?.provider ?? "provider"}.`
-      : status === "delayed"
-        ? `Last successful sync was ${ageSec ?? "?"}s ago. Data may be stale.`
-        : "No successful sync yet.";
-
-  return (
-    <Tip content={tip}>
-      <span className={cn("inline-flex items-center gap-2 font-semibold tracking-[0.12em] tnum", size === "sm" ? "text-[11px]" : "text-xs", meta.textClass, className)}>
-        <span className={cn("inline-block h-1.5 w-1.5 rounded-full", meta.dot, meta.animate && "animate-live-dot")} aria-hidden />
-        <span>{quiet ? "SOURCE QUIET" : connecting ? data?.lastSyncAt ? `LAST SYNC ${ageSec ?? 0}s AGO` : "AWAITING FIRST SYNC" : meta.text}</span>
-        {showTracked && data && data.trackedTraders > 0 && (
-          <span className="font-medium tracking-[0.12em] text-muted">· {data.trackedTraders} TRACKED TRADERS</span>
-        )}
-        {data?.isMock && (
-          <span className="rounded border border-warning/40 px-1.5 py-px text-[10px] font-semibold tracking-[0.1em] text-warning" title="Synthetic development data. Not real market activity.">
-            MOCK DATA
-          </span>
-        )}
-      </span>
-    </Tip>
-  );
+  const at = data?.lastTradeAt;
+  const valid = at && Number.isFinite(Date.parse(at));
+  return <span className={cn('inline-flex flex-wrap items-center gap-2 text-[11px] text-muted tnum', className)}>
+    {valid && <time dateTime={at} title="Time of the latest recorded trade">Latest trade {new Date(at).toISOString().slice(0,16).replace('T',' ')} UTC</time>}
+    {showTracked && data && <span>{data.trackedTraders} tracked traders</span>}
+    {data?.isMock && <span className="text-warning">MOCK DATA</span>}
+  </span>;
 }

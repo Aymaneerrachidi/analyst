@@ -3,8 +3,10 @@ import { and, eq, inArray, like, lt } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import type { AnalystTrader, RankingPeriod } from '@/lib/types';
 import { LEADERBOARD_QUERY, normalizeLeaderboard, type RankingMetric } from '@/lib/providers/leaderboard-data';
+import { mergeRankings, normalizeStalkRankings } from '@/lib/providers/stalkchain-rankings';
+import { stalkGet } from '@/lib/providers/stalkchain';
 
-type Snapshot = { capturedAt: string; metrics: RankingMetric[]; coverage: 'tracked-wallets' | 'public-snapshot' | 'recorded-swaps' };
+type Snapshot = { capturedAt: string; metrics: RankingMetric[]; coverage: 'tracked-wallets' | 'public-snapshot' | 'recorded-swaps' | 'combined' };
 export async function rankingStatus() {
   const db = await getDb();
   const [saved] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'leaderboard:rankings'));
@@ -54,13 +56,13 @@ export async function externalRankings(opts: { period?: RankingPeriod; filter?: 
       realizedPnl: r.pnl, roi: r.roi, winRate: r.winRate, trades: r.trades, buys: r.buys ?? null, sells: r.sells ?? null,
       volumeUsd: r.volumeUsd, avgTradeSize: r.volumeUsd !== null && r.trades ? r.volumeUsd / r.trades : null,
       bestTradeUsd: r.bestTradeUsd ?? null, topToken: null, lastActive: p.lastActiveAt?.toISOString() ?? null,
-      rank: ranks.get(r.wallet)!, statsSource: snapshot.coverage === 'recorded-swaps' ? 'Analyst tracked' as const : 'Defined' as const, statsPeriod: period, statsUpdatedAt: snapshot.capturedAt }];
+      rank: ranks.get(r.wallet)!, statsSource: r.source ?? (snapshot.coverage === 'recorded-swaps' ? 'Analyst tracked' as const : 'Defined' as const), statsPeriod: period, statsUpdatedAt: r.observedAt ?? snapshot.capturedAt, basisIncomplete: r.basisIncomplete }];
   });
 }
 
 /** Own API credentials only. Failed refreshes retain the last complete snapshot. */
 export async function refreshExternalRankings() {
-  if (!process.env.CODEX_API_KEY) return snapshotRecordedRankings();
+  if (!process.env.CODEX_API_KEY) return refreshPublicRankings();
   const db = await getDb();
   const wallets = (await db.select({ id: schema.traders.id }).from(schema.traders)).map(t => t.id);
   const rows: unknown[] = [];
@@ -115,4 +117,25 @@ export async function snapshotRecordedRankings() {
   await db.insert(schema.appMeta).values({ key: 'leaderboard:rankings', value }).onConflictDoUpdate({ target: schema.appMeta.key, set: { value, updatedAt: now } });
   await db.delete(schema.appMeta).where(and(like(schema.appMeta.key, 'leaderboard:hour:%'), lt(schema.appMeta.updatedAt, new Date(now.getTime() - 5 * 86_400_000))));
   return { status: 'updated', wallets: new Set(active.map(row => row.traderId)).size, partial: true, capturedAt: value.capturedAt };
+}
+
+/** Three public requests per hour; a failed window retains its original timestamp. */
+export async function refreshPublicRankings() {
+  const db = await getDb();
+  const saved = await db.select().from(schema.appMeta).where(inArray(schema.appMeta.key, ['leaderboard:defined-public', 'leaderboard:rankings']));
+  const previous = saved.find(r => r.key === 'leaderboard:rankings')?.value as Snapshot | undefined;
+  const defined = saved.find(r => r.key === 'leaderboard:defined-public')?.value as Snapshot | undefined;
+  const stalk: RankingMetric[] = [];
+  for (const period of ['24h', '7d', '30d'] as const) {
+    try { stalk.push(...normalizeStalkRankings(await stalkGet(`kols/leaderboard?window=${period}&sort=pnl&limit=100`), period, new Date().toISOString())); }
+    catch { stalk.push(...(previous?.metrics ?? []).filter(r => r.period === period && r.source === 'Stalkchain')); }
+  }
+  const metrics = mergeRankings(defined?.metrics ?? [], stalk);
+  if (!metrics.length) return { status: 'unavailable', retained: Boolean(previous) };
+  const now = new Date();
+  const value: Snapshot = { capturedAt: now.toISOString(), coverage: 'combined', metrics };
+  await db.insert(schema.appMeta).values({ key: 'leaderboard:rankings', value }).onConflictDoUpdate({ target: schema.appMeta.key, set: { value, updatedAt: now } });
+  await db.insert(schema.appMeta).values({ key: `leaderboard:hour:${now.toISOString().slice(0,13)}`, value }).onConflictDoNothing();
+  await db.delete(schema.appMeta).where(and(like(schema.appMeta.key, 'leaderboard:hour:%'), lt(schema.appMeta.updatedAt, new Date(now.getTime() - 5 * 86_400_000))));
+  return { status: 'updated', wallets: new Set(metrics.map(r => r.wallet)).size, defined: metrics.filter(r => r.source === 'Defined').length, stalkchain: metrics.filter(r => r.source === 'Stalkchain').length };
 }

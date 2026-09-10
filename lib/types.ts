@@ -19,7 +19,8 @@ export interface AnalystTraderRef {
 }
 
 export interface AnalystTrader extends AnalystTraderRef {
-  statsSource?: "Defined" | "KOLHOOD" | "Analyst tracked";
+  statsSource?: "Defined" | "KOLHOOD" | "Analyst tracked" | "Stalkchain";
+  basisIncomplete?: boolean;
   statsPeriod?: RankingPeriod;
   statsUpdatedAt?: string;
   twitterUrl?: string | null;
@@ -43,6 +44,7 @@ export interface AnalystTrader extends AnalystTraderRef {
 }
 
 export interface AnalystTrade {
+  logIndex?: number;
   id: string;
   seq: number;
   traderId: string;
@@ -96,7 +98,7 @@ export interface Freshness {
   checkedAt?: string;
   lastTradeAt?: string | null;
   tradeAgeMs?: number | null;
-  provider: "mock" | "kolhood" | "alchemy" | "stalkchain";
+  provider: "mock" | "kolhood" | "chain" | "alchemy" | "stalkchain";
   isMock: boolean;
   lastSyncAt: string | null;
   lastSyncOk: boolean;

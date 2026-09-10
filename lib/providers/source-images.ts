@@ -11,6 +11,8 @@ for (const host of ["j7m.io", "iili.io", "metadata.j7tracker.io", "cymetica.com"
 const pending = new Map<string, Promise<{ bytes: Buffer; type: string }>>();
 // ENS avatar service, present in Defined's public wallet identity metadata.
 ALLOWED.add("euc.li");
+ALLOWED.add("kol-avatar.solanatracker.io");
+for (const host of ["stalkchain.nyc3.cdn.digitaloceanspaces.com", "cdn-nj.qeqeqzxzx.xyz", "mademen.family", "cdn2.levitatingbananatree.xyz"]) ALLOWED.add(host);
 const failures = new Map<string, number>();
 
 export async function sourceImage(source: string): Promise<{ bytes: Buffer; type: string }> {
@@ -43,7 +45,16 @@ export async function sourceImage(source: string): Promise<{ bytes: Buffer; type
       if (target.protocol !== "https:" || target.hostname !== "pbs.twimg.com" || target.port || target.username) throw new Error("Invalid profile image source");
       if (/default_profile_images/.test(target.pathname)) throw new Error("Profile has no photo");
     }
-    const response = await fetch(target, { signal: AbortSignal.timeout(15_000), redirect: "error", cache: "no-store" });
+    let response = await fetch(target, { signal: AbortSignal.timeout(15_000), redirect: "manual", cache: "no-store" });
+    for (let redirects = 0; [301, 302, 303, 307, 308].includes(response.status) && redirects < 2; redirects++) {
+      const location = response.headers.get('location');
+      if (!location) throw new Error('Image redirect missing');
+      const next = new URL(location, target);
+      if (next.protocol !== 'https:' || !ALLOWED.has(next.hostname) || next.username || next.password || next.port) throw new Error('Unsupported image redirect');
+      await response.body?.cancel();
+      target = next;
+      response = await fetch(target, { signal: AbortSignal.timeout(15_000), redirect: 'manual', cache: 'no-store' });
+    }
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     if (!response.ok || !["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/svg+xml"].includes(type)) throw new Error("Source did not return a photo");
     if (Number(response.headers.get("content-length")) > 5_000_000) throw new Error("Image too large");

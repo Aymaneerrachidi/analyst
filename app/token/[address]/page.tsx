@@ -1,3 +1,4 @@
+import { TokenHolders } from "@/components/tokens/token-holders";
 import { TokenResearch } from "@/components/tokens/token-research";
 import { ActivitySignal } from "@/components/tracking/activity-signal";
 import type { Metadata } from "next";
@@ -103,6 +104,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
       {/* Top traders in token */}
       <TokenChart address={token.address} symbol={token.symbol} currentPrice={token.price} initialTrades={chartTrades} />
       <TokenResearch address={token.address} />
+      <TokenHolders address={token.address} />
       <TradePanel key={token.address} address={token.address} symbol={token.symbol} />
 
       <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>

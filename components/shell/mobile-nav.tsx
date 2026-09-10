@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/live", label: "Live", icon: PulseIcon },
   { href: "/traders", label: "Traders", icon: UsersIcon, match: ["/traders", "/trader"] },
   { href: "/tokens", label: "Tokens", icon: CoinsIcon, match: ["/tokens", "/token"] },
+  { href: "/radar", label: "Research", icon: PulseIcon, match: ["/radar", "/signals", "/narratives", "/compare", "/wallet", "/positions", "/feed"] },
   { href: "/social", label: "Community", icon: ChatCircleDotsIcon },
 ] as const;
 
@@ -22,7 +23,7 @@ export function MobileNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Primary"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : isActivePath(pathname, item);
           const Icon = item.icon;
