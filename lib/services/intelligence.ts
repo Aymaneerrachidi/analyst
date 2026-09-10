@@ -384,6 +384,16 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
   const categorySql = sql`case when ${normalizedSymbol} in (${sql.join(STABLE_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stablecoins' when ${normalizedSymbol} in (${sql.join(STOCK_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stocks' when ${normalizedSymbol} in (${sql.join(MEME_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'memes' else 'other' end`;
   if (opts.category && !["all", "new"].includes(opts.category)) where.push(sql`${categorySql} = ${opts.category}`);
   if (opts.category === "new") where.push(gt(tokens.firstSeenAt, new Date(Date.now() - 86_400_000)));
+  if (tab === "trending") {
+    where.push(
+      gt(tokenSnapshots.trackedTraders, 0),
+      gt(tokenSnapshots.score, 0),
+      sql`${tokenSnapshots.buys} + ${tokenSnapshots.sells} > 0`,
+      sql`${tokenSnapshots.buyUsd} + ${tokenSnapshots.sellUsd} > 0`,
+      gt(tokens.lastActivityAt, new Date(Date.now() - WINDOW_MS[window])),
+      gt(tokenSnapshots.computedAt, new Date(Date.now() - 2 * 3_600_000)),
+    );
+  }
   if (tab === "distributing") where.push(lt(tokenSnapshots.netFlowUsd, 0));
   if (tab === "accumulating") where.push(gt(tokenSnapshots.netFlowUsd, 0));
   if (opts.query) {
