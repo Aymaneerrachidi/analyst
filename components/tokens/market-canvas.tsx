@@ -20,6 +20,7 @@ export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSe
   const callback = useRef(onSelect);
   const fitted = useRef(false);
   const [style, setStyle] = useState<"candles" | "line">("candles");
+  const [names, setNames] = useState(false);
   const [hover, setHover] = useState<string>("");
   const [ready, setReady] = useState(0);
   useEffect(() => { callback.current = onSelect; }, [onSelect]);
@@ -38,8 +39,8 @@ export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSe
       localization: { priceFormatter: (value: number) => unit === "USD" ? formatPrice(value) : formatPrice(value).replace(/^\$/, "") },
     });
     const series = executions || style === "line"
-      ? chart.addSeries(AreaSeries, { lineColor: "#ccff00", topColor: "#ccff0018", bottomColor: "#ccff0000", lineWidth: 2, priceLineVisible: false })
-      : chart.addSeries(CandlestickSeries, { upColor: "#ccff00", downColor: "#ff7a81", wickUpColor: "#ccff00", wickDownColor: "#ff7a81", borderVisible: false, priceLineVisible: false });
+      ? chart.addSeries(AreaSeries, { lineColor: "#ccff00", topColor: "#ccff0018", bottomColor: "#ccff0000", lineWidth: 2, pointMarkersVisible: executions, pointMarkersRadius: 3, priceLineVisible: false, priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 } })
+      : chart.addSeries(CandlestickSeries, { upColor: "#ccff00", downColor: "#ff7a81", wickUpColor: "#ccff00", wickDownColor: "#ff7a81", borderVisible: false, priceLineVisible: false, priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 } });
     const histogram = chart.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "volume", lastValueVisible: false, priceLineVisible: false });
     histogram.priceScale().applyOptions({ scaleMargins: { top: 0.83, bottom: 0 }, visible: false });
     const plugin = createSeriesMarkers(series, [], { autoScale: false });
@@ -64,19 +65,20 @@ export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSe
     if (executions || style === "line") (price.current as ISeriesApi<"Area">).setData(rows.map(([time, c]) => ({ time: time as UTCTimestamp, value: c.close })));
     else (price.current as ISeriesApi<"Candlestick">).setData(rows.map(([time, c]) => ({ time: time as UTCTimestamp, open: c.open ?? c.close, high: Math.max(c.high ?? c.close, c.open ?? c.close, c.close), low: Math.min(c.low ?? c.close, c.open ?? c.close, c.close), close: c.close })));
     volume.current.setData(rows.map(([time, c]) => ({ time: time as UTCTimestamp, value: Math.max(0, c.volume || 0), color: c.close >= (c.open ?? c.close) ? "#ccff0035" : "#ff7a8135" })));
-    const groups = groupMarkers(trades, rows[0][0] * 1000, (rows.at(-1)![0] + (rows.length > 1 ? rows.at(-1)![0] - rows.at(-2)![0] : 60)) * 1000, Math.min(48, rows.length));
+    const groups = groupMarkers(trades, rows[0][0] * 1000, (rows.at(-1)![0] + (rows.length > 1 ? rows.at(-1)![0] - rows.at(-2)![0] : 60)) * 1000, Math.min(24, rows.length));
     selected.current = new Map(groups.map(g => [g.id, g.trades]));
     markers.current?.setMarkers(groups.map(g => {
       const time = rows.reduce((previous, row) => row[0] <= g.t / 1000 ? row[0] : previous, rows[0][0]);
-      return { time: time as UTCTimestamp, id: g.id, position: g.trade.side === "BUY" ? "belowBar" as const : "aboveBar" as const, shape: g.trade.side === "BUY" ? "arrowUp" as const : "arrowDown" as const, color: g.trade.side === "BUY" ? "#ccff00" : "#ff7a81", text: `${g.trade.trader.name.slice(0, 12)}${g.trades.length > 1 ? ` +${g.trades.length - 1}` : ""}`, size: 1 };
+      return { time: time as UTCTimestamp, id: g.id, position: g.trade.side === "BUY" ? "belowBar" as const : "aboveBar" as const, shape: g.trade.side === "BUY" ? "arrowUp" as const : "arrowDown" as const, color: g.trade.side === "BUY" ? "#ccff00" : "#ff7a81", text: names ? `${g.trade.trader.name.slice(0, 10)}${g.trades.length > 1 ? ` +${g.trades.length - 1}` : ""}` : "", size: 1 };
     }).sort((a, b) => Number(a.time) - Number(b.time)));
     if (!fitted.current) { api.current.timeScale().fitContent(); fitted.current = true; }
-  }, [candles, trades, executions, style, ready]);
+  }, [candles, trades, executions, style, ready, names]);
 
   return <div className="relative h-full rounded-xl border border-border bg-[#0b100d]">
     <div className="absolute inset-x-3 top-2 z-10 flex items-center justify-between gap-2 text-[10px]">
       <span className="pointer-events-none truncate font-mono text-secondary">{hover || `${candles.length} observations · ${unit} · drag to explore`}</span>
       <div className="flex shrink-0 gap-1 rounded-md border border-border bg-background p-1">
+        <button aria-label="Show trader names on chart" aria-pressed={names} className={`rounded px-2 py-1 ${names ? "text-neon" : "text-secondary"} hover:text-neon`} onClick={() => setNames(value => !value)}>KOLs</button>
         {!executions && <button className="rounded px-2 py-1 text-secondary hover:text-neon" onClick={() => setStyle(v => v === "candles" ? "line" : "candles")}>{style === "candles" ? "Line" : "Candles"}</button>}
         <button aria-label="Fit chart" className="rounded px-2 py-1 text-secondary hover:text-neon" onClick={() => api.current?.timeScale().fitContent()}>Fit</button>
       </div>
