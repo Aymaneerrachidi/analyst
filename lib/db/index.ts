@@ -24,7 +24,7 @@ async function createPostgres(url: string): Promise<Db> {
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const { migrate } = await import("drizzle-orm/postgres-js/migrator");
   const postgres = (await import("postgres")).default;
-  const client = postgres(url, { prepare: false, max: 10 });
+  const client = postgres(url, { prepare: false, max: process.env.ANALYST_WORKER === "1" ? 3 : 2, idle_timeout: 20, connect_timeout: 15 });
   const db = drizzle(client, { schema });
   if (!process.env.VERCEL) await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   holder.driver = "postgres";

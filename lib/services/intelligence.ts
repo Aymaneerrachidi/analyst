@@ -384,7 +384,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
     "token",
     rows.map((r) => r.token.address),
   );
-  const published = getProvider().isMock ? [] : await Promise.all(rows.map((r) => cachedLaunchpadToken(r.token.address)));
+  const published = getProvider().isMock || process.env.INDEXER_URL ? [] : await Promise.all(rows.map((r) => cachedLaunchpadToken(r.token.address)));
   for (const [index, entry] of published.entries()) {
     if (!entry) continue;
     const row = rows[index].token;
@@ -392,7 +392,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
     row.price ??= entry.token.price;
     row.fdv ??= entry.token.fdv;
   }
-  const enrichment = getProvider().isMock ? Promise.resolve(new Map()) : fetchMarketQuotes(rows.map((r) => r.token.address)).then(async (quotes) => {
+  const enrichment = getProvider().isMock || process.env.INDEXER_URL ? Promise.resolve(new Map()) : fetchMarketQuotes(rows.map((r) => r.token.address)).then(async (quotes) => {
     for (const { token } of rows) {
       const quote = quotes.get(token.address);
       if (quote) await db.update(tokens).set({ image: quote.image || sql`${tokens.image}`, price: quote.price ?? sql`${tokens.price}`, fdv: quote.fdv ?? sql`${tokens.fdv}`, marketCap: quote.marketCap ?? sql`${tokens.marketCap}`, volume24h: quote.volume24h ?? sql`${tokens.volume24h}`, priceChange24h: quote.priceChange24h ?? sql`${tokens.priceChange24h}` }).where(eq(tokens.address, token.address));
