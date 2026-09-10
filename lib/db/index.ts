@@ -21,12 +21,37 @@ const holder: Holder = globalHolder.__analystDb ?? (globalHolder.__analystDb = {
 const MIGRATIONS_FOLDER = path.join(process.cwd(), "drizzle");
 
 async function createPostgres(url: string): Promise<Db> {
+  if (process.env.VERCEL) {
+    const { Pool } = await import("pg");
+    const { attachDatabasePool } = await import("@vercel/functions");
+    const { drizzle } = await import("drizzle-orm/node-postgres");
+    const connectionUrl = new URL(url);
+    const supabase = connectionUrl.hostname.endsWith(".pooler.supabase.com");
+    const ssl = supabase ? { ca: (await import("./supabase-ca")).SUPABASE_CA, rejectUnauthorized: true } : undefined;
+    if (supabase) connectionUrl.searchParams.delete("sslmode");
+    // Vercel must drain idle sockets before suspending an instance. A plain
+    // persistent postgres.js pool can reuse a dead socket and hang the page.
+    const pool = new Pool({
+      connectionString: connectionUrl.href,
+      ...(ssl ? { ssl } : {}),
+      max: 2,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 5_000,
+      query_timeout: 15_000,
+      keepAlive: true,
+      allowExitOnIdle: true,
+    });
+    pool.on("error", () => console.error("[database] Idle connection closed; next query will reconnect."));
+    attachDatabasePool(pool);
+    holder.driver = "postgres";
+    return drizzle(pool, { schema }) as unknown as Db;
+  }
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const { migrate } = await import("drizzle-orm/postgres-js/migrator");
   const postgres = (await import("postgres")).default;
   const client = postgres(url, { prepare: false, max: process.env.ANALYST_WORKER === "1" ? 3 : 2, idle_timeout: 20, connect_timeout: 15 });
   const db = drizzle(client, { schema });
-  if (!process.env.VERCEL && process.env.ANALYST_WORKER !== '1') await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  if (!process.env.VERCEL) await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   holder.driver = "postgres";
   return db as unknown as Db;
 }
@@ -55,16 +80,16 @@ async function createPglite(): Promise<Db> {
 export function getDb(): Promise<Db> {
   if (holder.db) {
     // Development hot reload preserves the connection, but must still apply new migrations.
-    if (holder.driver && holder.schemaVersion !== 4) {
+    if (holder.driver && holder.schemaVersion !== 2) {
       holder.schemaReady ??= (async () => {
         if (holder.driver === "pglite") {
           const { migrate } = await import("drizzle-orm/pglite/migrator");
           await migrate(holder.db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: MIGRATIONS_FOLDER });
-        } else if (!process.env.VERCEL && process.env.ANALYST_WORKER !== '1') {
+        } else {
           const { migrate } = await import("drizzle-orm/postgres-js/migrator");
           await migrate(holder.db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: MIGRATIONS_FOLDER });
         }
-        holder.schemaVersion = 4;
+        holder.schemaVersion = 2;
       })().finally(() => { holder.schemaReady = undefined; });
       return holder.schemaReady.then(() => holder.db!);
     }
@@ -75,7 +100,7 @@ export function getDb(): Promise<Db> {
     holder.ready = (url ? createPostgres(url) : createPglite())
       .then((db) => {
         holder.db = db;
-        holder.schemaVersion = 4;
+        holder.schemaVersion = 2;
         return db;
       })
       .catch((err) => {

@@ -76,7 +76,10 @@ const server = createServer((req, res) => {
   if (req.url === '/health') { res.writeHead(stopping ? 503 : 200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ service: 'stalkchain-consumer', upstream: upstream(), tracked: tracked.size, published, pending: pending.length, sourceAgeSeconds, lastTradeAt, lastEventAt: lastEventAt ? new Date(lastEventAt).toISOString() : null })); return; }
   const expected = Buffer.from(`Bearer ${process.env.INDEXER_SECRET}`), supplied = Buffer.from(req.headers.authorization ?? '');
   if (req.url !== '/events' || expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) { res.writeHead(401); res.end(); return; }
-  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' }); res.write(`event: status\ndata: ${JSON.stringify({ upstream: upstream() })}\n\n`); clients.add(res); req.on('close', () => clients.delete(res));
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' }); res.write(`event: status\ndata: ${JSON.stringify({ upstream: upstream() })}\n\n`); clients.add(res);
+  // IncomingMessage closes when the GET request finishes reading, while the
+  // streaming response remains open. Remove subscribers only on response close.
+  res.on('close', () => clients.delete(res));
 });
 server.listen(Number(process.env.PORT ?? 8080), '0.0.0.0');
 process.on('SIGTERM', () => { stopping = true; }); process.on('SIGINT', () => { stopping = true; });

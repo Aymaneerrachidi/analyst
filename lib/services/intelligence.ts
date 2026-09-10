@@ -401,7 +401,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
     "token",
     rows.map((r) => r.token.address),
   );
-  const published = getProvider().isMock ? [] : await Promise.all(rows.map((r) => cachedLaunchpadToken(r.token.address)));
+  const published = getProvider().isMock || process.env.INDEXER_URL ? [] : await Promise.all(rows.map((r) => cachedLaunchpadToken(r.token.address)));
   for (const [index, entry] of published.entries()) {
     if (!entry) continue;
     const row = rows[index].token;
