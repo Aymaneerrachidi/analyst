@@ -99,7 +99,10 @@ export async function refreshExternalRankings() {
 export async function snapshotRecordedRankings() {
   const db = await getDb();
   const rows = await db.select().from(schema.traderSnapshots).where(inArray(schema.traderSnapshots.period, ['24h', '7d', '30d']));
-  const active = rows.filter(row => row.trades > 0 && Number.isFinite(row.pnl) && Date.now() - row.computedAt.getTime() < 2 * 3_600_000);
+  const latest = Math.max(0, ...rows.map(row => row.computedAt.getTime()));
+  // Historical imports share this table. Only the latest local computation
+  // belongs in this snapshot; older source rows must not acquire a fresh date.
+  const active = rows.filter(row => row.trades > 0 && Number.isFinite(row.pnl) && latest - row.computedAt.getTime() < 120_000 && Date.now() - row.computedAt.getTime() < 2 * 3_600_000);
   if (!active.length) return { status: 'awaiting-recorded-trades' };
   const now = new Date();
   const computedAt = new Date(Math.min(...active.map(row => row.computedAt.getTime())));
