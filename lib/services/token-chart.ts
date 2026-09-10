@@ -14,7 +14,7 @@ import { preserveChartHistory } from "@/lib/chart-series";
 import { readCache, writeCache } from "@/lib/providers/persistent-cache";
 
 export async function getTokenChart(address: string, window: FlowWindow): Promise<TokenChartData> {
-  if (process.env.INDEXER_URL && process.env.ANALYST_WORKER !== '1') {
+  if (process.env.INDEXER_URL && process.env.LIVE_FEED_SOURCE !== 'stalkchain' && process.env.ANALYST_WORKER !== '1') {
     const db = await getDb();
     await db.insert(schema.appMeta).values({ key: `demand:chart:${address.toLowerCase()}:${window}`, value: { address: address.toLowerCase(), window } }).onConflictDoNothing();
     const cached = await readCache<TokenChartData & { retrievedAt?: string }>('chart-history', `${address.toLowerCase()}-${window}`);
@@ -65,7 +65,7 @@ async function loadTokenChart(address: string, window: FlowWindow): Promise<Toke
   const fallback: TokenChartData = executions.length
     ? { window, markers, candles: executions, activity, source: "executions", priceUnit: "USD", marketUrl: null }
     : { window, markers, candles: [], activity, source: "unavailable", marketUrl: null, error: "No market history or priced executions are available for this period." };
-  if (!marketDataEnabled() || process.env.INDEXER_URL && process.env.ANALYST_WORKER !== "1") return fallback;
+  if (!marketDataEnabled() || process.env.INDEXER_URL && process.env.LIVE_FEED_SOURCE !== 'stalkchain' && process.env.ANALYST_WORKER !== "1") return fallback;
   try {
     const result = await fetchTokenCandles(address, window);
     if (result.candles.length) return { window, markers, candles: result.candles, activity, source: "geckoterminal", marketUrl: result.marketUrl, fdv: result.token?.fdv, liquidityUsd: result.token?.liquidityUsd };
