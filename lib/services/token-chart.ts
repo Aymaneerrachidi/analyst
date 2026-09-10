@@ -5,6 +5,7 @@ import { getDb, schema } from "@/lib/db";
 import { getProvider } from "@/lib/providers";
 import { fetchTokenCandles } from "@/lib/providers/geckoterminal";
 import { fetchLaunchpadChart } from "@/lib/providers/launchpad";
+import { fetchPaprikaCandles } from "@/lib/providers/dexpaprika";
 import { marketDataEnabled } from "@/lib/providers/market-data";
 import type { FlowWindow, TokenChartData, TokenCandle } from "@/lib/types";
 import { WINDOW_MS } from "./sync";
@@ -60,5 +61,9 @@ async function loadTokenChart(address: string, window: FlowWindow): Promise<Toke
   }
   const launchpad = await fetchLaunchpadChart(address, window);
   if (launchpad?.candles.length) return { window, markers, candles: launchpad.candles, priceUnit: launchpad.unit, activity, source: "pons", marketUrl: `https://www.ponsfamily.com/launchpad/${address}` };
+  try {
+    const extra = await fetchPaprikaCandles(address, window);
+    if (extra?.candles.length) return { window, markers, candles: extra.candles, priceUnit: extra.unit, activity, source: 'dexpaprika', marketUrl: extra.marketUrl, liquidityUsd: extra.liquidityUsd };
+  } catch { /* Retain recorded history when the free fallback is unavailable. */ }
   return fallback;
 }
