@@ -3,6 +3,7 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { createHash } from "node:crypto";
 import { readCache, writeCache } from "./persistent-cache";
+import { reserveProviderRequest } from './request-budget';
 
 const API = "https://api.geckoterminal.com/api/v2";
 type Cached = { value: unknown; at: number };
@@ -26,6 +27,7 @@ export async function geckoJson(path: string, ttl = 5 * 60_000): Promise<unknown
   const pending = inflight.get(path);
   if (pending) return pending;
   const request = (async () => {
+    if (!await reserveProviderRequest('geckoterminal', 25)) { if (hit) return hit.value; throw new Error('Market data request budget reached'); }
     const response = await fetch(`${API}${path}`, { headers: { accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (response.status === 429) retryAfter = Date.now() + 60_000;
     if (!response.ok && response.status !== 404) throw new Error(`Market data returned ${response.status}.`);

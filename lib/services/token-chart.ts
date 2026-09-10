@@ -4,6 +4,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { getProvider } from "@/lib/providers";
 import { fetchTokenCandles } from "@/lib/providers/geckoterminal";
+import { fetchPaprikaCandles } from "@/lib/providers/dexpaprika";
 import { fetchLaunchpadChart } from "@/lib/providers/launchpad";
 import { marketDataEnabled } from "@/lib/providers/market-data";
 import type { FlowWindow, TokenChartData, TokenCandle } from "@/lib/types";
@@ -73,5 +74,9 @@ async function loadTokenChart(address: string, window: FlowWindow): Promise<Toke
   }
   const launchpad = await fetchLaunchpadChart(address, window);
   if (launchpad?.candles.length) return { window, markers, candles: launchpad.candles, priceUnit: launchpad.unit, activity, source: "pons", marketUrl: `https://www.ponsfamily.com/launchpad/${address}` };
+  try {
+    const result = await fetchPaprikaCandles(address, window);
+    if (result?.candles.length) return { window, markers, candles: result.candles, priceUnit: result.unit, activity, source: "dexpaprika", marketUrl: result.marketUrl, liquidityUsd: result.liquidityUsd };
+  } catch { /* Keep priced executions when the market providers are unavailable. */ }
   return fallback;
 }

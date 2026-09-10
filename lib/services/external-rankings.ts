@@ -1,16 +1,16 @@
 import 'server-only';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, like, lt } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import type { AnalystTrader, RankingPeriod } from '@/lib/types';
 import { LEADERBOARD_QUERY, normalizeLeaderboard, type RankingMetric } from '@/lib/providers/leaderboard-data';
 
-type Snapshot = { capturedAt: string; metrics: RankingMetric[]; coverage: 'tracked-wallets' | 'public-snapshot' };
+type Snapshot = { capturedAt: string; metrics: RankingMetric[]; coverage: 'tracked-wallets' | 'public-snapshot' | 'recorded-swaps' };
 export async function rankingStatus() {
   const db = await getDb();
   const [saved] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'leaderboard:rankings'));
   if (!saved) return null;
   const snapshot = saved.value as Snapshot;
-  return { capturedAt: snapshot.capturedAt, wallets: new Set(snapshot.metrics.map(r => r.wallet)).size, automatic: snapshot.coverage === 'tracked-wallets' };
+  return { capturedAt: snapshot.capturedAt, wallets: new Set(snapshot.metrics.map(r => r.wallet)).size, automatic: snapshot.coverage !== 'public-snapshot', partial: snapshot.coverage === 'recorded-swaps', intervalMinutes: 60 };
 }
 export async function saveRankingSnapshot(rows: unknown, capturedAt: string, coverage: Snapshot['coverage']) {
   if (!Number.isFinite(Date.parse(capturedAt)) || Date.parse(capturedAt) > Date.now() + 60_000) throw new Error('Invalid ranking timestamp');
@@ -51,16 +51,16 @@ export async function externalRankings(opts: { period?: RankingPeriod; filter?: 
       pnl24h: snapshot.metrics.find(m => m.wallet === p.id && m.period === '24h')?.pnl ?? null,
       pnl7d: snapshot.metrics.find(m => m.wallet === p.id && m.period === '7d')?.pnl ?? null,
       pnl30d: snapshot.metrics.find(m => m.wallet === p.id && m.period === '30d')?.pnl ?? null,
-      realizedPnl: r.pnl, roi: r.roi, winRate: r.winRate, trades: r.trades, buys: null, sells: null,
+      realizedPnl: r.pnl, roi: r.roi, winRate: r.winRate, trades: r.trades, buys: r.buys ?? null, sells: r.sells ?? null,
       volumeUsd: r.volumeUsd, avgTradeSize: r.volumeUsd !== null && r.trades ? r.volumeUsd / r.trades : null,
-      bestTradeUsd: null, topToken: null, lastActive: p.lastActiveAt?.toISOString() ?? null,
-      rank: ranks.get(r.wallet)!, statsSource: 'Defined' as const, statsPeriod: period, statsUpdatedAt: snapshot.capturedAt }];
+      bestTradeUsd: r.bestTradeUsd ?? null, topToken: null, lastActive: p.lastActiveAt?.toISOString() ?? null,
+      rank: ranks.get(r.wallet)!, statsSource: snapshot.coverage === 'recorded-swaps' ? 'Analyst tracked' as const : 'Defined' as const, statsPeriod: period, statsUpdatedAt: snapshot.capturedAt }];
   });
 }
 
 /** Own API credentials only. Failed refreshes retain the last complete snapshot. */
 export async function refreshExternalRankings() {
-  if (!process.env.CODEX_API_KEY) return { status: 'credentials-required' };
+  if (!process.env.CODEX_API_KEY) return snapshotRecordedRankings();
   const db = await getDb();
   const wallets = (await db.select({ id: schema.traders.id }).from(schema.traders)).map(t => t.id);
   const rows: unknown[] = [];
@@ -92,4 +92,24 @@ export async function refreshExternalRankings() {
     }
   }
   return { status: 'updated', ...result, activityChecks };
+}
+
+/** Hourly, reproducible rankings from our recorded swap history. Never relabel
+ * an old public leaderboard as freshly fetched, or combine its PnL with ours. */
+export async function snapshotRecordedRankings() {
+  const db = await getDb();
+  const rows = await db.select().from(schema.traderSnapshots).where(inArray(schema.traderSnapshots.period, ['24h', '7d', '30d']));
+  const active = rows.filter(row => row.trades > 0 && Number.isFinite(row.pnl) && Date.now() - row.computedAt.getTime() < 2 * 3_600_000);
+  if (!active.length) return { status: 'awaiting-recorded-trades' };
+  const now = new Date();
+  const computedAt = new Date(Math.min(...active.map(row => row.computedAt.getTime())));
+  if (now.getTime() - computedAt.getTime() > 2 * 3_600_000) return { status: 'analytics-stale' };
+  const value: Snapshot = { capturedAt: computedAt.toISOString(), coverage: 'recorded-swaps', metrics: active.map(row => ({ wallet: row.traderId, period: row.period as RankingMetric['period'], pnl: row.pnl, roi: row.roi, winRate: row.winRate, trades: row.trades, volumeUsd: row.volumeUsd, buys: row.buys, sells: row.sells, bestTradeUsd: row.bestTradeUsd })) };
+  const [previous] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'leaderboard:rankings'));
+  if (previous && (previous.value as Snapshot).coverage === 'public-snapshot') await db.insert(schema.appMeta).values({ key: 'leaderboard:public-backup', value: previous.value }).onConflictDoNothing();
+  const key = `leaderboard:hour:${now.toISOString().slice(0, 13)}`;
+  await db.insert(schema.appMeta).values({ key, value }).onConflictDoNothing();
+  await db.insert(schema.appMeta).values({ key: 'leaderboard:rankings', value }).onConflictDoUpdate({ target: schema.appMeta.key, set: { value, updatedAt: now } });
+  await db.delete(schema.appMeta).where(and(like(schema.appMeta.key, 'leaderboard:hour:%'), lt(schema.appMeta.updatedAt, new Date(now.getTime() - 5 * 86_400_000))));
+  return { status: 'updated', wallets: new Set(active.map(row => row.traderId)).size, partial: true, capturedAt: value.capturedAt };
 }

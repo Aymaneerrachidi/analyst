@@ -9,6 +9,7 @@ import type { UpstreamTrade } from '../lib/providers/types';
 import { refreshExternalRankings } from '../lib/services/external-rankings';
 import { enrichTrackedTokens } from '../lib/services/token-enrichment';
 import { refreshWalletTokenSnapshot } from '../lib/services/wallet-token-data';
+import { refreshMadeOnSol } from '../lib/services/madeonsol-ingestion';
 
 const missing = [!process.env.DATABASE_URL && 'DATABASE_URL', (process.env.INDEXER_SECRET?.length ?? 0) < 32 && 'INDEXER_SECRET'].filter(Boolean);
 if (process.argv.includes('--check')) { console.log(JSON.stringify({ worker: 'stalkchain', ready: missing.length === 0, missing })); process.exit(missing.length ? 2 : 0); }
@@ -18,7 +19,7 @@ const put = async (key: string, value: object) => { await db.insert(schema.appMe
 const clients = new Set<ServerResponse>();
 const broadcast = (event: string, data: unknown) => { for (const client of clients) { if (client.writableLength > 512_000) { client.end(); clients.delete(client); } else client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } };
 let tracked = new Set<string>(), walletIndex = 0, published = 0, lastEventAt = 0, sourceAgeSeconds: number | null = null, lastStatusAt = 0, lastTradeAt: string | null = null;
-let stopping = false, flushing = false, dirty = false, lastDerived = 0, failures = 0, lastPoll = 0, lastRoster = 0, lastHistory = 0, nextAttempt = 0;
+let stopping = false, flushing = false, dirty = true, lastDerived = 0, failures = 0, lastPoll = 0, lastRoster = 0, lastHistory = 0, nextAttempt = 0;
 let pending: UpstreamTrade[] = [], cursor: string | null = null, savedCursor: string | null = null;
 let stage = 'starting';
 let analytics: Promise<void> | undefined;
@@ -27,6 +28,7 @@ let markets: Promise<void> | undefined, nextMarkets = 0;
 let walletDetails: Promise<void> | undefined, nextWalletDetails = 0, detailIndex = 0;
 const persisted = new Set<string>();
 let databaseRetryAt = 0, lastHeartbeatWrite = 0;
+let supplemental: Promise<void> | undefined, nextSupplemental = 0;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
 const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
@@ -121,6 +123,10 @@ while (!stopping) {
     }
     stage = 'persist'; await flush();
     stage = 'analytics';
+    if (process.env.MADEONSOL_API_KEY && !supplemental && Date.now() >= nextSupplemental) {
+      nextSupplemental = Date.now() + 15 * 60_000;
+      supplemental = refreshMadeOnSol().then(result => { if (result.inserted) { dirty = true; broadcast('indexed', { trades: result.inserted, at: new Date().toISOString() }); } }).catch(() => console.error('{"event":"supplemental_feed_unavailable"}')).finally(() => { supplemental = undefined; });
+    }
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
     if (Date.now() - lastHeartbeatWrite >= 15_000) { await put('stalkchain-worker', status); lastHeartbeatWrite = Date.now(); }
     if (process.env.CODEX_API_KEY && tracked.size && !walletDetails && Date.now() >= nextWalletDetails) {
@@ -138,7 +144,7 @@ while (!stopping) {
         console.error('{"event":"market_enrichment_failed"}');
       }).finally(() => { markets = undefined; });
     }
-    if (!rankings && Date.now() - lastRankings > 900_000) {
+    if (!rankings && !analytics && lastDerived > 0 && Date.now() - lastRankings > 3_600_000) {
       lastRankings = Date.now();
       rankings = refreshExternalRankings().then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
     }
@@ -150,4 +156,4 @@ while (!stopping) {
   } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); databaseRetryAt = nextAttempt; }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
-clearInterval(transportHeartbeat); socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails]); process.exit(0);
+clearInterval(transportHeartbeat); socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails, supplemental]); process.exit(0);
