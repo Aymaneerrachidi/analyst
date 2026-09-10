@@ -26,6 +26,7 @@ import { DiscussionThread } from "@/components/social/discussion-thread";
 import { WatchButton } from "@/components/workspace/watchlist";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { TokenChart } from "@/components/tokens/token-chart";
+import { TokenResearch } from "@/components/tokens/token-research";
 import { TradePanel } from "@/components/trading/trade-panel";
 import { tokenContext } from "@/lib/intelligence/token-context";
 import { TokenIntelligencePanel } from "@/components/intelligence/token-intelligence";
@@ -104,6 +105,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
 
       {/* Top traders in token */}
       <TokenChart address={token.address} symbol={token.symbol} currentPrice={token.price} initialTrades={chartTrades} />
+      <TokenResearch address={token.address} />
       <TradePanel key={token.address} address={token.address} symbol={token.symbol} risk={intelligence?.risk} />
       {intelligence && <TokenIntelligencePanel context={intelligence} />}
 

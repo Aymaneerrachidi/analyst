@@ -145,6 +145,7 @@ export const trades = pgTable(
     index("trades_seq_idx").on(t.seq),
     index("trades_trader_idx").on(t.traderId, t.timestamp),
     index("trades_token_idx").on(t.tokenAddress, t.timestamp),
+    uniqueIndex("trades_execution_identity").on(t.txHash, t.traderId, t.tokenAddress, t.side),
   ],
 );
 

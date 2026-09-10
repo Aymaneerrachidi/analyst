@@ -29,6 +29,13 @@
       "when": 1788926453776,
       "tag": "0003_canonical_trade_cursors",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789074252615,
+      "tag": "0004_trade_execution_identity",
+      "breakpoints": true
     }
   ]
 }
