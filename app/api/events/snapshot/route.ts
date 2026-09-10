@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { indexedTradeSnapshot } from '@/lib/intelligence/live';
 import { listTrades } from '@/lib/services/intelligence';
-import { mergeLiveTrades } from '@/lib/client/live-trades';
 import { noStore } from '@/lib/api';
-export async function GET() {
-  const [indexed, imported] = await Promise.all([indexedTradeSnapshot(), listTrades({ limit: 100 })]);
-  return NextResponse.json({ trades: mergeLiveTrades(imported, indexed, 100) }, noStore);
+export async function GET(req: Request) {
+  const raw = new URL(req.url).searchParams.get('after');
+  const after = raw === null ? undefined : Number(raw);
+  if (after !== undefined && (!Number.isSafeInteger(after) || after < 0)) return NextResponse.json({ error: 'Invalid cursor' }, { status: 400, ...noStore });
+  try {
+    return NextResponse.json({ trades: await listTrades({ limit: 100, afterSeq: after }) }, noStore);
+  } catch {
+    return NextResponse.json({ error: 'Market data is temporarily unavailable.' }, { status: 503, headers: { 'cache-control': 'no-store', 'retry-after': '60' } });
+  }
 }

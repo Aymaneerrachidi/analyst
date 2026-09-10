@@ -25,12 +25,14 @@ let analytics: Promise<void> | undefined;
 let rankings: Promise<void> | undefined, lastRankings = 0;
 let markets: Promise<void> | undefined, nextMarkets = 0;
 let walletDetails: Promise<void> | undefined, nextWalletDetails = 0, detailIndex = 0;
+const persisted = new Set<string>();
+let databaseRetryAt = 0, lastHeartbeatWrite = 0;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
 const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
 function enqueue(value: unknown, wallet?: string) {
   const row = parseStalkTrade(value, wallet);
-  if (row && tracked.has(row.wallet)) pending.push(row);
+  if (row && tracked.has(row.wallet) && !persisted.has(row.id)) pending.push(row);
   if (pending.length > 5000) { socket.disconnect(); throw new Error('Live inbox backpressure'); }
 }
 async function roster() {
@@ -51,13 +53,15 @@ async function flush() {
   const batch = pending; pending = []; const batchCursor = cursor;
   try {
     if (batch.length) {
-      const known = await db.select().from(schema.tokens).where(inArray(schema.tokens.address, [...new Set(batch.map(t => t.tokenAddress))]));
+      const known = await db.select({ address: schema.tokens.address, symbol: schema.tokens.symbol, name: schema.tokens.name }).from(schema.tokens).where(inArray(schema.tokens.address, [...new Set(batch.map(t => t.tokenAddress))]));
       for (const trade of batch) { const token = known.find(t => t.address === trade.tokenAddress); if (token) { trade.tokenSymbol = token.symbol; trade.tokenName = token.name; } }
       const count = await insertTrades(db, batch); published += count; dirty ||= count > 0;
+      for (const trade of batch) persisted.add(trade.id);
+      while (persisted.size > 30_000) persisted.delete(persisted.values().next().value!);
       if (count) { lastTradeAt = batch.reduce((latest, row) => row.timestamp > latest ? row.timestamp : latest, lastTradeAt ?? ''); broadcast('indexed', { trades: count, at: new Date().toISOString() }); }
       await put('stalkchain-import', { at: new Date().toISOString(), imported: count, received: batch.length, source: 'Stalkchain public feed', verification: 'provider-reported', historyComplete: false });
     }
-    if (batchCursor) { await put('stalkchain-cursor', { cursor: batchCursor, at: new Date().toISOString() }); savedCursor = batchCursor; }
+    if (batchCursor && batchCursor !== savedCursor) { await put('stalkchain-cursor', { cursor: batchCursor, at: new Date().toISOString() }); savedCursor = batchCursor; }
   } catch { pending.unshift(...batch); throw new Error('Persistence unavailable'); }
   finally { flushing = false; }
 }
@@ -77,6 +81,7 @@ const server = createServer((req, res) => {
 server.listen(Number(process.env.PORT ?? 8080), '0.0.0.0');
 process.on('SIGTERM', () => { stopping = true; }); process.on('SIGINT', () => { stopping = true; });
 while (!stopping) {
+  if (Date.now() < databaseRetryAt) { await new Promise(resolve => setTimeout(resolve, 1000)); continue; }
   try {
     if (Date.now() >= nextAttempt) {
       stage = 'roster';
@@ -109,7 +114,8 @@ while (!stopping) {
     stage = 'persist'; await flush();
     stage = 'analytics';
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
-    await put('stalkchain-worker', status); broadcast('heartbeat', { upstream: upstream(), ...status });
+    if (Date.now() - lastHeartbeatWrite >= 15_000) { await put('stalkchain-worker', status); lastHeartbeatWrite = Date.now(); }
+    broadcast('heartbeat', { upstream: upstream(), ...status });
     if (process.env.CODEX_API_KEY && tracked.size && !walletDetails && Date.now() >= nextWalletDetails) {
       nextWalletDetails = Date.now() + 60_000;
       const wallets = [...tracked];
@@ -130,11 +136,11 @@ while (!stopping) {
       rankings = refreshExternalRankings().then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
     }
     // Historical analytics must never block receipt of the next live trade.
-    if (dirty && !analytics && Date.now() - lastDerived > 300_000) {
+    if (dirty && !analytics && Date.now() - lastDerived > 900_000) {
       dirty = false; lastDerived = Date.now();
       analytics = recomputeDerived(db, { providerOwnsRankings: false }).catch(() => { dirty = true; console.error('{"event":"analytics_failed"}'); }).finally(() => { analytics = undefined; });
     }
-  } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); }
+  } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); databaseRetryAt = nextAttempt; }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
 socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails]); process.exit(0);
