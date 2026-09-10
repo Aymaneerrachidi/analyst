@@ -9,7 +9,7 @@ import { groupMarkers } from "@/lib/chart-markers";
 
 type Props = { candles: TokenCandle[]; trades: AnalystTrade[]; executions: boolean; unit: string; resetKey: string; onSelect: (trades: AnalystTrade[]) => void };
 
-/** Market candles remain provider candles. Wallet arrows annotate their time,
+/** Market candles remain provider candles. Wallet markers annotate their time,
  * never manufacture an execution price or a market candle from a wallet trade. */
 export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSelect }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -44,7 +44,13 @@ export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSe
       : chart.addSeries(CandlestickSeries, { upColor: "#ccff00", downColor: "#ff7a81", wickUpColor: "#ccff00", wickDownColor: "#ff7a81", borderVisible: false, priceLineVisible: false, priceFormat: { type: "price", precision: 12, minMove: 0.000000000001 } });
     const histogram = chart.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "volume", lastValueVisible: false, priceLineVisible: false });
     histogram.priceScale().applyOptions({ scaleMargins: { top: 0.83, bottom: 0 }, visible: false });
-    const updatePins = () => redraw.current();
+    let pinFrame = 0;
+    const updatePins = () => { cancelAnimationFrame(pinFrame); pinFrame = requestAnimationFrame(() => redraw.current()); };
+    const dragPins = (event: PointerEvent) => { if (event.buttons) updatePins(); };
+    const element = host.current;
+    element.addEventListener('pointermove', dragPins);
+    element.addEventListener('wheel', updatePins, { passive: true });
+    element.addEventListener('dblclick', updatePins);
     chart.timeScale().subscribeVisibleLogicalRangeChange(updatePins);
     const observer = new ResizeObserver(updatePins);
     observer.observe(host.current);
@@ -56,7 +62,7 @@ export function MarketCanvas({ candles, trades, executions, unit, resetKey, onSe
     });
     api.current = chart; price.current = series; volume.current = histogram; fitted.current = false;
     setReady(value => value + 1);
-    return () => { observer.disconnect(); chart.timeScale().unsubscribeVisibleLogicalRangeChange(updatePins); chart.remove(); api.current = null; price.current = null; volume.current = null; };
+    return () => { cancelAnimationFrame(pinFrame); element.removeEventListener('pointermove', dragPins); element.removeEventListener('wheel', updatePins); element.removeEventListener('dblclick', updatePins); observer.disconnect(); chart.timeScale().unsubscribeVisibleLogicalRangeChange(updatePins); chart.remove(); api.current = null; price.current = null; volume.current = null; };
   }, [style, executions, unit, resetKey]);
 
   useEffect(() => {
