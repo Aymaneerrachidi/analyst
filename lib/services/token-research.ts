@@ -36,8 +36,10 @@ export async function reserveResearch(token: string) {
 }
 export async function generateResearch(address: string) {
   const s = settings(); const at = new Date().toISOString();
+  let stage = 'configuration'; let httpStatus: number | undefined;
   try {
     const base = new URL(s.base!); if (base.origin !== 'https://app.base44.com' || !/^\/api\/agents\/[a-f0-9]+$/.test(base.pathname)) throw new Error('Invalid agent endpoint');
+    stage = 'market-context';
     const token = await getToken(address); if (!token) throw new Error('Token unavailable');
     const trades = await listTrades({ tokenAddress: address, limit: 30 });
     const requestId = randomUUID();
@@ -46,10 +48,13 @@ export async function generateResearch(address: string) {
     const conversationUrl = `${base.href}/conversations/${encodeURIComponent(s.conversation!)}`;
     // Some agent calls complete asynchronously even if the initial HTTP request
     // times out. Poll only for a new, correlated, schema-validated report.
-    await fetch(conversationUrl+'/messages', { method: 'POST', headers: { api_key: s.key!, 'Content-Type': 'application/json' }, body: JSON.stringify({ content }), redirect: 'error', signal: AbortSignal.timeout(20_000) }).then(r=>{ if (!r.ok) throw new Error('Agent rejected request'); }).catch(error=>{ if (error.name !== 'TimeoutError') throw error; });
+    stage = 'agent-send';
+    await fetch(conversationUrl+'/messages', { method: 'POST', headers: { api_key: s.key!, 'Content-Type': 'application/json' }, body: JSON.stringify({ content }), redirect: 'error', signal: AbortSignal.timeout(20_000) }).then(r=>{ httpStatus = r.status; if (!r.ok) throw new Error('Agent rejected request'); }).catch(error=>{ if (error.name !== 'TimeoutError') throw error; });
+    stage = 'agent-poll';
     const until = Date.now()+100_000;
     while (Date.now()<until) {
       const response = await fetch(conversationUrl, { headers: { api_key: s.key! }, redirect:'error', signal:AbortSignal.timeout(10_000), cache:'no-store' });
+      httpStatus = response.status;
       if (!response.ok) throw new Error('Agent response unavailable');
       const body = await response.json() as { messages?: { role?: string; content?: unknown }[] };
       for (const message of [...(body.messages??[])].reverse()) {
@@ -58,6 +63,7 @@ export async function generateResearch(address: string) {
       }
       await new Promise(resolve=>setTimeout(resolve,5000));
     }
+    stage = 'correlated-response-timeout';
     throw new Error('Research timed out');
-  } catch { await save(address,{status:'unavailable',at,message:'Research could not be completed. No report was invented.'}); }
+  } catch (error) { console.error(JSON.stringify({ event: 'research_failed', stage, httpStatus, errorType: error instanceof Error ? error.name : 'unknown' })); await save(address,{status:'unavailable',at,message:'Research could not be completed. No report was invented.'}); }
 }
