@@ -40,7 +40,7 @@ export function TokenMiniCard({ token }: { token: AnalystToken }) {
 }
 
 export function TrendingStrip({ tokens }: { tokens: AnalystToken[] }) {
-  if (tokens.length === 0) return null;
+  if (tokens.length === 0) return <p className="rounded-xl border border-border p-5 text-sm text-muted">No meme tokens currently meet the activity and market-data requirements.</p>;
   return (
     <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 no-scrollbar md:grid md:grid-flow-dense md:grid-cols-2 md:overflow-visible lg:grid-cols-4">
       {tokens.map((token) => <TokenMiniCard key={token.address} token={token} />)}
