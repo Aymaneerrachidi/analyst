@@ -31,7 +31,7 @@ function href(period: RankingPeriod, filter: TraderFilter, q?: string, page = 1)
 
 export default async function TradersPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const sp = await searchParams;
-  const period = (RANKING_PERIODS as string[]).includes(String(sp.period)) ? (sp.period as RankingPeriod) : "30d";
+  const period = (RANKING_PERIODS.filter(p => p !== "all") as string[]).includes(String(sp.period)) ? (sp.period as RankingPeriod) : "30d";
   const filter = FILTERS.some((f) => f.value === sp.filter) ? (sp.filter as TraderFilter) : "all";
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 40) : "";
 
@@ -45,7 +45,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
   return (
     <div>
       <PageHeader title="Follow the traders." description="Compare tracked wallets on Robinhood Chain by realized performance, activity, and community sentiment.">
-        <FilterTabs value={period} options={RANKING_PERIODS.map((p) => ({ value: p, label: PERIOD_LABELS[p], href: href(p, filter, q) }))} ariaLabel="Ranking period" />
+        <FilterTabs value={period} options={RANKING_PERIODS.filter(p => p !== "all").map((p) => ({ value: p, label: PERIOD_LABELS[p], href: href(p, filter, q) }))} ariaLabel="Ranking period" />
       </PageHeader>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <a href={`/traders?source=analyst&period=${period}`} className="text-sm text-neon">Analyst computed rankings</a>

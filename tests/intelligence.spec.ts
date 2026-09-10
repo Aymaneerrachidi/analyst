@@ -8,7 +8,8 @@ test('intelligence pages render without errors and remain usable on a phone', as
     const response = await page.goto(path);
     expect(response?.status(), path).toBe(200);
     await expect(page.locator('main h1')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Intelligence tools' })).toBeVisible();
+    if (path === '/radar') await expect(page.getByRole('heading', { name: 'Why is it pumping?' })).toBeVisible();
+    else await expect(page.getByRole('navigation', { name: 'Intelligence tools' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), path).toBe(true);
   }
   expect(errors).toEqual([]);
@@ -41,7 +42,8 @@ test('research and indexing fail honestly when unconfigured', async ({ page }) =
   const feed = await (await page.request.get('/api/trades?limit=1')).json();
   const address = feed.trades[0].token.address;
   const response = await page.request.post(`/api/tokens/${address}/why-pumping`, { data: {} });
-  expect(response.status()).toBe(503);
+  expect(response.status()).toBe(200);
+  expect((await response.json()).accepted).toBe(false);
   const health = await (await page.request.get('/api/health')).json();
   expect(health.features.research).toBe(false);
   expect(health.features.sharedStream).toBe(false);

@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/live", label: "Live", icon: PulseIcon },
   { href: "/traders", label: "Traders", icon: UsersIcon, match: ["/traders", "/trader"] },
   { href: "/tokens", label: "Tokens", icon: CoinsIcon, match: ["/tokens", "/token"] },
-  { href: "/radar", label: "Radar", icon: PulseIcon, match: ["/radar", "/signals", "/narratives", "/compare", "/wallet", "/positions", "/feed"] },
+  { href: "/radar", label: "Research", icon: PulseIcon, match: ["/radar", "/signals", "/narratives", "/compare", "/wallet", "/positions", "/feed"] },
   { href: "/social", label: "Community", icon: ChatCircleDotsIcon },
 ] as const;
 

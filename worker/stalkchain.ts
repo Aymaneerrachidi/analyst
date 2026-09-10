@@ -1,3 +1,4 @@
+import { captureDefinedRankings } from './defined-browser';
 import { createServer, type ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { io } from 'socket.io-client';
@@ -146,7 +147,7 @@ while (!stopping) {
     }
     if (!rankings && !analytics && lastDerived > 0 && Date.now() - lastRankings > 3_600_000) {
       lastRankings = Date.now();
-      rankings = refreshExternalRankings().then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
+      rankings = captureDefinedRankings().catch(() => { console.error('{"event":"defined_public_unavailable"}'); }).then(() => refreshExternalRankings()).then(result => put('leaderboard:refresh', { ...result, at: new Date().toISOString() })).catch(() => put('leaderboard:refresh', { status: 'unavailable', at: new Date().toISOString() })).finally(() => { rankings = undefined; });
     }
     // Historical analytics must never block receipt of the next live trade.
     if (dirty && !analytics && Date.now() - lastDerived > 900_000) {

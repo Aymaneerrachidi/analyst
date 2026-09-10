@@ -29,7 +29,7 @@ import { TokenChart } from "@/components/tokens/token-chart";
 import { TokenResearch } from "@/components/tokens/token-research";
 import { TradePanel } from "@/components/trading/trade-panel";
 import { tokenContext } from "@/lib/intelligence/token-context";
-import { TokenIntelligencePanel } from "@/components/intelligence/token-intelligence";
+import { TokenHolders } from "@/components/tokens/token-holders";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +107,7 @@ export default async function TokenPage({ params, searchParams }: { params: Prom
       <TokenChart address={token.address} symbol={token.symbol} currentPrice={token.price} initialTrades={chartTrades} />
       <TokenResearch address={token.address} />
       <TradePanel key={token.address} address={token.address} symbol={token.symbol} risk={intelligence?.risk} />
-      {intelligence && <TokenIntelligencePanel context={intelligence} />}
+      <TokenHolders address={token.address} />
 
       <WorkspaceTabs labels={["Active traders", "Swaps", "Discussion"]} initial={1}>
       <section>

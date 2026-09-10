@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export const NAV_ITEMS = [
   { href: "/", label: "Overview" },
   { href: "/live", label: "Live trades" },
-  { href: "/radar", label: "Radar", match: ["/radar", "/signals", "/narratives", "/compare", "/wallet"] },
+  { href: "/radar", label: "Research", match: ["/radar", "/signals", "/narratives", "/compare", "/wallet"] },
   { href: "/traders", label: "Traders", match: ["/traders", "/trader"] },
   { href: "/tokens", label: "Tokens", match: ["/tokens", "/token"] },
   { href: "/social", label: "Community" },

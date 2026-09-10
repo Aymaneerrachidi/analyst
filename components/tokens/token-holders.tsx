@@ -1,0 +1,15 @@
+'use client';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiGet } from '@/lib/client/fetcher';
+import { formatUsd, shortAddress } from '@/lib/format';
+import type { tokenHolderEvidence } from '@/lib/services/token-holder-evidence';
+export function TokenHolders({ address }: { address: string }) {
+  const [open, setOpen] = useState(false);
+  const query = useQuery({ queryKey: ['holders', address], enabled: open, staleTime: 300_000, retry: 1, queryFn: ({signal}) => apiGet<Awaited<ReturnType<typeof tokenHolderEvidence>>>(`/api/tokens/${address}/holders`, signal) });
+  const data = query.data?.data;
+  return <section className="card p-5" aria-label="Holders and risk evidence"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-medium">Holders & concentration</h2><p className="mt-1 text-xs text-secondary">Inspect the largest sampled balances and available liquidity.</p></div><button onClick={() => { setOpen(true); if(open) void query.refetch(); }} disabled={query.isFetching} className="rounded-full border border-border px-4 py-2 text-xs hover:border-neon hover:text-neon disabled:opacity-50">{query.isFetching ? 'Loading holders…' : open ? 'Refresh holders' : 'Inspect risks & holders'}</button></div>
+    {open && (query.isError || query.data && !data) && <p role="status" className="mt-4 text-sm text-secondary">Holder evidence is unavailable for this token. Try refreshing shortly.</p>}
+    {data && <div className="mt-5"><div className="grid grid-cols-2 gap-5 border-y border-border py-4"><div><p className="text-xs text-muted">Top 10 sampled accounts</p><p className="mt-1 text-xl tnum">{data.top10 == null ? 'Not measured' : `${data.top10.toFixed(2)}%`}</p></div><div><p className="text-xs text-muted">Reported liquidity</p><p className="mt-1 text-xl tnum">{data.liquidity == null ? 'Not measured' : formatUsd(data.liquidity)}</p></div></div><details className="mt-4" open><summary className="cursor-pointer text-xs text-secondary">Largest sampled holders ({data.holders.length})</summary><ol className="mt-3 grid gap-x-8 sm:grid-cols-2">{data.holders.map((h,i) => <li key={h.address} className="relative flex items-center gap-3 border-b border-border/60 py-3 text-xs"><span className="w-4 text-muted tnum">{i+1}</span><a className="flex-1 font-mono hover:text-neon" href={`https://robinhoodchain.blockscout.com/address/${h.address}`} target="_blank" rel="noreferrer">{shortAddress(h.address)} ↗</a><span className="tnum">{h.percent.toFixed(2)}%</span><span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-neon/40" style={{width:`${Math.min(100,h.percent)}%`}}/></li>)}</ol></details><p className="mt-4 text-[11px] leading-relaxed text-muted">Balances observed {data.holderObservedAt ? new Date(data.holderObservedAt).toISOString().slice(0,16).replace('T',' ')+' UTC' : 'at an unspecified time'}. Burn addresses excluded; pools and exchange accounts may be included. This is a holder sample, not a contract safety verdict. Mint permissions, blacklist controls and sellability are not verified by this view.</p></div>}
+  </section>;
+}

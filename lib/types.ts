@@ -19,7 +19,8 @@ export interface AnalystTraderRef {
 }
 
 export interface AnalystTrader extends AnalystTraderRef {
-  statsSource?: "Defined" | "KOLHOOD" | "Analyst tracked";
+  statsSource?: "Defined" | "KOLHOOD" | "Analyst tracked" | "Stalkchain";
+  basisIncomplete?: boolean;
   statsPeriod?: RankingPeriod;
   statsUpdatedAt?: string;
   twitterUrl?: string | null;

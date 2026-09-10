@@ -14,16 +14,19 @@ test("a failed chart refresh keeps the loaded single-point chart visible and can
   await page.goto(`/token/${token.address}`);
   const chart = page.getByRole("region", { name: `${token.symbol} chart` });
   await expect(chart.getByText(/One recorded price point/)).toBeVisible();
-  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+  await expect(chart.getByRole("img", { name: /Execution price chart/ })).toBeVisible();
+  await expect.poll(() => chart.locator("canvas").evaluateAll(canvases => canvases.some(canvas => { const c = canvas as HTMLCanvasElement; const pixels = c.getContext("2d")?.getImageData(0, 0, c.width, c.height).data; return pixels ? pixels.some((v, i) => i % 4 === 0 && v === 204 && pixels[i + 1] === 255 && pixels[i + 2] === 0) : false; }))).toBe(true);
   fail = true;
   await page.clock.runFor(20_000);
   await expect(chart.getByRole("button", { name: "Retry refresh" })).toBeVisible();
-  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+  await expect(chart.getByRole("img", { name: /Execution price chart/ })).toBeVisible();
+  await expect.poll(() => chart.locator("canvas").evaluateAll(canvases => canvases.some(canvas => { const c = canvas as HTMLCanvasElement; const pixels = c.getContext("2d")?.getImageData(0, 0, c.width, c.height).data; return pixels ? pixels.some((v, i) => i % 4 === 0 && v === 204 && pixels[i + 1] === 255 && pixels[i + 2] === 0) : false; }))).toBe(true);
   await expect(chart.getByText("The chart couldn’t load.")).toHaveCount(0);
   fail = false;
   await chart.getByRole("button", { name: "Retry refresh" }).click();
   await expect(chart.getByRole("button", { name: "Retry refresh" })).toHaveCount(0);
-  await expect(chart.locator(".recharts-dot").first()).toBeVisible();
+  await expect(chart.getByRole("img", { name: /Execution price chart/ })).toBeVisible();
+  await expect.poll(() => chart.locator("canvas").evaluateAll(canvases => canvases.some(canvas => { const c = canvas as HTMLCanvasElement; const pixels = c.getContext("2d")?.getImageData(0, 0, c.width, c.height).data; return pixels ? pixels.some((v, i) => i % 4 === 0 && v === 204 && pixels[i + 1] === 255 && pixels[i + 2] === 0) : false; }))).toBe(true);
 });
 
 test("following persists, custom alerts deduplicate, chart markers open real trade details", async ({ page }) => {
@@ -132,7 +135,7 @@ test("overview fits desktop and mobile, and search, score details, and navigatio
   const chart = page.getByRole("region", { name: "PONS chart" });
   await chart.scrollIntoViewIfNeeded();
   await chart.getByRole("button", { name: "7D", exact: true }).click();
-  await expect(chart.locator(".recharts-surface").first()).toBeVisible();
+  await expect(chart.getByRole("img", { name: /chart with KOL/ })).toBeVisible();
   await chart.getByRole("button", { name: "Tracked flow", exact: true }).click();
   await expect(chart.getByRole("heading", { name: "Tracked buy and sell volume" })).toBeVisible();
   await chart.getByRole("button", { name: "7D", exact: true }).click();

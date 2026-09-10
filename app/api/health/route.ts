@@ -1,3 +1,4 @@
+import { researchConfigured } from '@/lib/services/token-research';
 import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
@@ -20,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ status: healthy ? "ok" : "degraded", database: "reachable", chainId: 4663,
       indexer: { status: cursor?.status ?? "not configured", lastIndexedBlock: cursor?.blockNumber ?? null, coverageStartBlock: cursor?.startBlock ?? null, websocket: cursor?.wsStatus ?? "not configured", ageMs },
       pipeline: pipeline ? { updatedAt: pipeline.updatedAt, ageMs: Date.now() - pipeline.updatedAt.getTime(), ...(pipeline.value as { stages?: unknown }) } : { status: 'not started' },
-      features: { research: Boolean(config.BASE44_AGENT_URL && config.BASE44_AGENT_KEY), directTrading: executionEnabled(), sharedStream: configured && Boolean(config.INDEXER_SECRET) },
+      features: { research: researchConfigured(), directTrading: executionEnabled(), sharedStream: configured && Boolean(config.INDEXER_SECRET) },
       launchReady: healthy && configured && Boolean(config.INDEXER_SECRET) && cursor?.status === 'live' && Boolean(pipeline && Date.now() - pipeline.updatedAt.getTime() < 300000),
     }, { ...noStore, status: healthy ? 200 : 503 });
   } catch { return NextResponse.json({ status: "unavailable" }, { ...noStore, status: 503 }); }
