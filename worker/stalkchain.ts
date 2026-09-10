@@ -82,6 +82,11 @@ const server = createServer((req, res) => {
   res.on('close', () => clients.delete(res));
 });
 server.listen(Number(process.env.PORT ?? 8080), '0.0.0.0');
+// Source/history requests can take longer than the browser's liveness window.
+// Transport heartbeats must not wait for those requests or write to the database.
+const transportHeartbeat = setInterval(() => broadcast('heartbeat', {
+  upstream: upstream(), at: new Date().toISOString(), lastTradeAt, sourceAgeSeconds,
+}), 5000);
 process.on('SIGTERM', () => { stopping = true; }); process.on('SIGINT', () => { stopping = true; });
 while (!stopping) {
   if (Date.now() < databaseRetryAt) { await new Promise(resolve => setTimeout(resolve, 1000)); continue; }
@@ -118,7 +123,6 @@ while (!stopping) {
     stage = 'analytics';
     const status = { at: new Date().toISOString(), status: upstream(), sourceAgeSeconds, tracked: tracked.size, published, lastTradeAt, pending: pending.length, historyComplete: false };
     if (Date.now() - lastHeartbeatWrite >= 15_000) { await put('stalkchain-worker', status); lastHeartbeatWrite = Date.now(); }
-    broadcast('heartbeat', { upstream: upstream(), ...status });
     if (process.env.CODEX_API_KEY && tracked.size && !walletDetails && Date.now() >= nextWalletDetails) {
       nextWalletDetails = Date.now() + 60_000;
       const wallets = [...tracked];
@@ -146,4 +150,4 @@ while (!stopping) {
   } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); databaseRetryAt = nextAttempt; }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
-socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails]); process.exit(0);
+clearInterval(transportHeartbeat); socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails]); process.exit(0);
