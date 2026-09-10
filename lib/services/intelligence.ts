@@ -371,7 +371,15 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
       order = [desc(sql`${tokenSnapshots.score} * 1.0 + least(${tokenSnapshots.trackedTraders}, 20) * 1.5`), desc(tokenSnapshots.netFlowUsd)];
   }
 
-  const where: SQL[] = [];
+  // Filter before sorting and pagination so incomplete rows cannot occupy
+  // leaderboard slots. Ingestion still retains them for later enrichment.
+  const valuation = sql`coalesce(${tokens.marketCap}, ${tokens.fdv})`;
+  const where: SQL[] = [
+    sql`${tokens.price} > 0 and ${tokens.price} < 'Infinity'::double precision`,
+    sql`${valuation} > 0 and ${valuation} < 'Infinity'::double precision`,
+    sql`${tokens.volume24h} >= 0 and ${tokens.volume24h} < 'Infinity'::double precision`,
+    sql`${tokens.priceChange24h} > '-Infinity'::double precision and ${tokens.priceChange24h} < 'Infinity'::double precision`,
+  ];
   const normalizedSymbol = sql`upper(ltrim(${tokens.symbol}, '$'))`;
   const categorySql = sql`case when ${normalizedSymbol} in (${sql.join(STABLE_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stablecoins' when ${normalizedSymbol} in (${sql.join(STOCK_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'stocks' when ${normalizedSymbol} in (${sql.join(MEME_SYMBOLS.map(s => sql`${s}`), sql`,`)}) then 'memes' else 'other' end`;
   if (opts.category && !["all", "new"].includes(opts.category)) where.push(sql`${categorySql} = ${opts.category}`);
@@ -421,7 +429,7 @@ export async function listTokens(opts: ListTokensOptions = {}): Promise<AnalystT
   const quotes = await Promise.race([enrichment, new Promise<Map<string, import("@/lib/providers/market-data").MarketQuote>>((resolve) => { timer = setTimeout(() => resolve(new Map()), 4000); })]).finally(() => { if (timer) clearTimeout(timer); });
   return rows.map(({ token, snap, buyer }) => {
     const quote = quotes.get(token.address);
-    const enriched = quote ? { ...token, price: quote.price ?? token.price, marketCap: quote.marketCap, fdv: quote.fdv ?? token.fdv, volume24h: quote.volume24h ?? token.volume24h, priceChange24h: quote.priceChange24h ?? token.priceChange24h, image: quote.image || token.image, name: quote.name || token.name } : token;
+    const enriched = quote ? { ...token, price: quote.price ?? token.price, marketCap: quote.marketCap ?? token.marketCap, fdv: quote.fdv ?? token.fdv, volume24h: quote.volume24h ?? token.volume24h, priceChange24h: quote.priceChange24h ?? token.priceChange24h, image: quote.image || token.image, name: quote.name || token.name } : token;
     return mapToken(enriched, snap, buyer, window, ratings.get(token.address));
   });
 }
