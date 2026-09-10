@@ -21,6 +21,10 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       DATA_PROVIDER: "mock",
+      WEBHOOK_FEED_ENABLED: "0",
+      LIVE_FEED_SOURCE: "",
+      INDEXER_URL: "",
+      INDEXER_SECRET: "",
       DATABASE_URL: "",
       PGLITE_DATA_DIR: ".data/playwright",
       MARKET_DATA_PROVIDER: "none",

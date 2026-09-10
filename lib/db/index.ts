@@ -21,6 +21,31 @@ const holder: Holder = globalHolder.__analystDb ?? (globalHolder.__analystDb = {
 const MIGRATIONS_FOLDER = path.join(process.cwd(), "drizzle");
 
 async function createPostgres(url: string): Promise<Db> {
+  if (process.env.VERCEL) {
+    const { Pool } = await import("pg");
+    const { attachDatabasePool } = await import("@vercel/functions");
+    const { drizzle } = await import("drizzle-orm/node-postgres");
+    const connectionUrl = new URL(url);
+    const supabase = connectionUrl.hostname.endsWith(".pooler.supabase.com");
+    const ssl = supabase ? { ca: (await import("./supabase-ca")).SUPABASE_CA, rejectUnauthorized: true } : undefined;
+    if (supabase) connectionUrl.searchParams.delete("sslmode");
+    // Vercel must drain idle sockets before suspending an instance. A plain
+    // persistent postgres.js pool can reuse a dead socket and hang the page.
+    const pool = new Pool({
+      connectionString: connectionUrl.href,
+      ...(ssl ? { ssl } : {}),
+      max: 2,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 5_000,
+      query_timeout: 15_000,
+      keepAlive: true,
+      allowExitOnIdle: true,
+    });
+    pool.on("error", () => console.error("[database] Idle connection closed; next query will reconnect."));
+    attachDatabasePool(pool);
+    holder.driver = "postgres";
+    return drizzle(pool, { schema }) as unknown as Db;
+  }
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const { migrate } = await import("drizzle-orm/postgres-js/migrator");
   const postgres = (await import("postgres")).default;
