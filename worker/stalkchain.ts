@@ -1,3 +1,4 @@
+import { startPublicFeed } from './public-feed';
 import { captureDefinedRankings } from './defined-browser';
 import { createServer, type ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
@@ -32,7 +33,8 @@ let databaseRetryAt = 0, lastHeartbeatWrite = 0;
 let supplemental: Promise<void> | undefined, nextSupplemental = 0;
 const [checkpoint] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'stalkchain-cursor'));
 savedCursor = (checkpoint?.value as { cursor?: string } | undefined)?.cursor ?? null;
-const upstream = () => !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
+const publicFeed = startPublicFeed((count, timestamp) => { dirty = true; published += count; if (!lastTradeAt || timestamp > lastTradeAt) lastTradeAt = timestamp; broadcast('indexed', { trades: count, at: new Date().toISOString() }); });
+const upstream = () => publicFeed.state.connected && Date.now() - publicFeed.state.lastHeadAt < 30_000 && !publicFeed.state.error ? 'live' : !socket.connected || Date.now() - lastStatusAt > 90_000 ? 'reconnecting' : sourceAgeSeconds !== null && sourceAgeSeconds <= 30 ? 'live' : 'delayed';
 function enqueue(value: unknown, wallet?: string) {
   const row = parseStalkTrade(value, wallet);
   if (row && tracked.has(row.wallet) && !persisted.has(row.id)) pending.push(row);
@@ -57,7 +59,7 @@ async function flush() {
   try {
     if (batch.length) {
       const known = await db.select({ address: schema.tokens.address, symbol: schema.tokens.symbol, name: schema.tokens.name }).from(schema.tokens).where(inArray(schema.tokens.address, [...new Set(batch.map(t => t.tokenAddress))]));
-      for (const trade of batch) { const token = known.find(t => t.address === trade.tokenAddress); if (token) { trade.tokenSymbol = token.symbol; trade.tokenName = token.name; } }
+      for (const trade of batch) { const token = known.find(t => t.address === trade.tokenAddress); if (token && !/^0x/i.test(token.symbol)) { trade.tokenSymbol = token.symbol; trade.tokenName = token.name; } }
       const count = await insertTrades(db, batch); published += count; dirty ||= count > 0;
       for (const trade of batch) persisted.add(trade.id);
       while (persisted.size > 30_000) persisted.delete(persisted.values().next().value!);
@@ -76,7 +78,7 @@ socket.on('robinhood.live.v1', (event: { schema?: string; type?: string; cursor?
   try { enqueue(event.row); if (typeof event.cursor === 'string' && /^\d+:\d+$/.test(event.cursor)) cursor = event.cursor; } catch { socket.disconnect(); }
 });
 const server = createServer((req, res) => {
-  if (req.url === '/health') { res.writeHead(stopping ? 503 : 200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ service: 'stalkchain-consumer', upstream: upstream(), tracked: tracked.size, published, pending: pending.length, sourceAgeSeconds, lastTradeAt, lastEventAt: lastEventAt ? new Date(lastEventAt).toISOString() : null })); return; }
+  if (req.url === '/health') { res.writeHead(stopping ? 503 : 200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ service: 'robinhood-feed', independent: publicFeed.state, upstream: upstream(), tracked: tracked.size, published, pending: pending.length, sourceAgeSeconds, lastTradeAt, lastEventAt: lastEventAt ? new Date(lastEventAt).toISOString() : null })); return; }
   const expected = Buffer.from(`Bearer ${process.env.INDEXER_SECRET}`), supplied = Buffer.from(req.headers.authorization ?? '');
   if (req.url !== '/events' || expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) { res.writeHead(401); res.end(); return; }
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' }); res.write(`event: status\ndata: ${JSON.stringify({ upstream: upstream() })}\n\n`); clients.add(res);
@@ -157,4 +159,4 @@ while (!stopping) {
   } catch { failures++; console.error(JSON.stringify({ event: 'cycle_failed', stage, failures })); nextAttempt = Date.now() + Math.min(120_000, 5000 * 2 ** Math.min(failures, 5)); databaseRetryAt = nextAttempt; }
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
-clearInterval(transportHeartbeat); socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails, supplemental]); process.exit(0);
+clearInterval(transportHeartbeat); await publicFeed.stop(); socket.disconnect(); await flush(); await put('stalkchain-worker', { at: new Date().toISOString(), status: 'offline' }); for (const client of clients) client.end(); server.close(); await Promise.allSettled([analytics, markets, rankings, walletDetails, supplemental]); process.exit(0);
