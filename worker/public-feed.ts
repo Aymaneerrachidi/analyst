@@ -143,7 +143,7 @@ export function startPublicFeed(onInsert: (count: number, timestamp: string) => 
           // independently; a discovery outage keeps the already stored roster.
           const [discovery] = await db.select().from(schema.appMeta).where(eq(schema.appMeta.key, 'public-feed:discovery'));
           if (!Array.isArray((discovery?.value as { addresses?: string[] })?.addresses) || Date.now() - discovery!.updatedAt.getTime() > 86_400_000) {
-            await put('public-feed:discovery', { at: new Date().toISOString(), status: 'attempted' });
+            await put('public-feed:discovery', { ...(discovery?.value as Record<string, unknown> ?? {}), at: new Date().toISOString(), status: 'attempted' });
             try {
               const response = await fetch('https://fomopulse.app/api/traders?window=24h&limit=300', { signal: AbortSignal.timeout(10_000) });
               if (!response.ok) throw new Error('discovery_unavailable');
