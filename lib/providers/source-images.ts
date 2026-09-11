@@ -11,6 +11,7 @@ for (const host of ["j7m.io", "iili.io", "metadata.j7tracker.io", "cymetica.com"
 const pending = new Map<string, Promise<{ bytes: Buffer; type: string }>>();
 // ENS avatar service, present in Defined's public wallet identity metadata.
 ALLOWED.add("euc.li");
+ALLOWED.add("prod-fomo-profile-pics.s3.amazonaws.com");
 ALLOWED.add("kol-avatar.solanatracker.io");
 for (const host of ["stalkchain.nyc3.cdn.digitaloceanspaces.com", "cdn-nj.qeqeqzxzx.xyz", "mademen.family", "cdn2.levitatingbananatree.xyz"]) ALLOWED.add(host);
 const failures = new Map<string, number>();

@@ -153,7 +153,7 @@ export async function upsertTokens(
       .onConflictDoUpdate({
         target: tokens.address,
         set: {
-          symbol: sql`excluded.symbol`,
+          symbol: sql`case when excluded.symbol ~* '^0x[0-9a-f]+$' then ${tokens.symbol} else excluded.symbol end`,
           name: sql`case when excluded.name = excluded.symbol then ${tokens.name} else excluded.name end`,
           image: sql`coalesce(excluded.image, ${tokens.image})`,
           price: sql`coalesce(excluded.price, ${tokens.price})`,
